@@ -36,6 +36,10 @@ class param:
     diagnostic: diagonostic
 
 @dataclass
+class multipleShootingParam:
+    nGrid: int
+
+@dataclass
 class traj:
     t: np.ndarray
     x: np.ndarray
