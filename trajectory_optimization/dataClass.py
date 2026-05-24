@@ -1,13 +1,20 @@
 from dataclasses import dataclass
 import numpy as np
 @dataclass
-class Guess:
+class GuessSingleShoot: # For single shooting
     init_speed: float
     init_angle: float
     dx0: float = 0.0 # initial velocity in x direction, to be filled by the simulation
     dy0: float = 0.0 # initial velocity in y direction, to be filled by the simulation
     T : float = 0.0 # total time of flight, to be filled by the simulation
 
+@dataclass
+class GuessMultipleShoot: # For multiple shooting
+    T: float # flight duration
+    t: np.ndarray # time grid
+    z: np.ndarray # state grid, shape (4, nGrid), where z[0,:] is x, z[1,:] is y, z[2,:] is dx, z[3,:] is dy
+
+@dataclass
 class Init:
     speed: float
     angle: float
@@ -18,10 +25,6 @@ class Target:
     y: float
 
 @dataclass
-class dynamics:
-    c: float
-
-@dataclass
 class singleShooting:
     nGrid: int
 
@@ -30,14 +33,20 @@ class diagonostic:
     enable: bool
 
 @dataclass
-class param:
-    dynamics: dynamics
-    singleShooting: singleShooting
+class dynamicsSimulation:
+    c: float # drag coefficient
+    nGrid: int 
+
+@dataclass
+class singleShootingParam:
+    nGrid: int # number of grid points for the single shooting method
+    c: float # drag coefficient
     diagnostic: diagonostic
 
 @dataclass
 class multipleShootingParam:
-    nGrid: int
+    nSegment: int
+    nSubsStep: int
 
 @dataclass
 class traj:

@@ -29,9 +29,9 @@ class IterationCallback(Callback):
         return [0]
 
 
-def cannonSingleShooting (guess: dataClass.Guess, target: dataClass.Target, param: dataClass.param):
+def cannonSingleShooting (guess: dataClass.GuessSingleShoot, target: dataClass.Target, param: dataClass.singleShootingParam):
     # INPUT:
-    #  guess: dataClass.Guess()
+    #  guess: dataClass.GuessSingleShoot()
     #  target: dataClass.Target()
     #  param: dataClass.param()
 
@@ -45,13 +45,11 @@ def cannonSingleShooting (guess: dataClass.Guess, target: dataClass.Target, para
     # Run a simulation to get initial guess
     
 
-    init = dataClass.Init()
-    init.speed = guess.init_speed
-    init.angle = guess.init_angle
+    init = dataClass.Init(speed=guess.init_speed, angle=guess.init_angle)
+    
 
-    c = param.dynamics.c # drag coeff
-
-    nGrid = param.singleShooting.nGrid
+    c = param.c # drag coefficient
+    nGrid = param.nGrid
 
     trajectory = simulateCannon(init, param)
 
@@ -60,7 +58,7 @@ def cannonSingleShooting (guess: dataClass.Guess, target: dataClass.Target, para
     guess.dy0 = trajectory.dy[0] # initial velocity in y direction
     guess.T = trajectory.t[-1] # total time of flight
 
-    # --- CasADi single shooting ---
+    # --- CasADi Nonlinear Programming ---
 
     # Symbolic cannon dynamics: d/dt [x, y, vx, vy]
     g_val = 9.81
@@ -71,7 +69,7 @@ def cannonSingleShooting (guess: dataClass.Guess, target: dataClass.Target, para
 
     ode_sym = vertcat(vx_s, vy_s,
                       -c * vx_s * v_s,
-                      -c * vy_s * v_s - g_val) # cannon dynamics with drag
+                      -c * vy_s * v_s - g_val) # cannon dynamics equation with drag
 
     # Time-scaled integrator: tau in [0, 1], d/dtau(z) = T * f(z)
     # Each of the nGrid steps covers 1/nGrid of the normalised interval
@@ -115,9 +113,8 @@ def cannonSingleShooting (guess: dataClass.Guess, target: dataClass.Target, para
     print(f"Optimised: dx0={dx0_opt:.3f} m/s, dy0={dy0_opt:.3f} m/s, T={T_opt:.3f} s")
 
     # Reconstruct the optimised trajectory using simulateCannon
-    init_opt       = dataClass.Init()
-    init_opt.speed = float(np.sqrt(dx0_opt**2 + dy0_opt**2))
-    init_opt.angle = float(np.arctan2(dy0_opt, dx0_opt))
+    init_opt       = dataClass.Init(speed=float(np.sqrt(dx0_opt**2 + dy0_opt**2)),
+                                   angle=float(np.arctan2(dy0_opt, dx0_opt)))
     trajectory_opt = simulateCannon(init_opt, param)
 
     # Pick 3 evenly-spaced intermediate iterates (excluding the final one)
@@ -131,21 +128,18 @@ def cannonSingleShooting (guess: dataClass.Guess, target: dataClass.Target, para
     intermediate_trajectories = []
     for idx in indices:
         dx0_i, dy0_i, _ = all_iters[idx]
-        init_i       = dataClass.Init()
-        init_i.speed = float(np.sqrt(dx0_i**2 + dy0_i**2))
-        init_i.angle = float(np.arctan2(dy0_i, dx0_i))
+        init_i       = dataClass.Init(speed=float(np.sqrt(dx0_i**2 + dy0_i**2)),
+                                     angle=float(np.arctan2(dy0_i, dx0_i)))
         intermediate_trajectories.append(simulateCannon(init_i, param))
 
     return trajectory_opt, intermediate_trajectories
 
 # test the function
 if __name__ == "__main__":
-    guess = dataClass.Guess(init_speed=9.0, init_angle=np.deg2rad(45))
-    target = dataClass.Target(x=13.0, y=0.0)
-    dynamics = dataClass.dynamics(c=0.05)
-    singleShooting = dataClass.singleShooting(nGrid=20)
+    guess = dataClass.GuessSingleShoot(init_speed=9.0, init_angle=np.deg2rad(45))
+    target = dataClass.Target(x=12.0, y=0.0)
     diagnostic = dataClass.diagonostic(enable=True)
-    param = dataClass.param(dynamics=dynamics, singleShooting=singleShooting, diagnostic=diagnostic)
+    param = dataClass.dynamicsSimulation(c=0.05, nGrid=20)
 
     trajectory_opt, iter_trajs = cannonSingleShooting(guess, target, param)
 
@@ -153,10 +147,9 @@ if __name__ == "__main__":
     colors = ['#aec6e8', '#6baed6', '#2171b5']  # light -> dark blue for intermediate
     plt.figure()
     for i, traj in enumerate(iter_trajs):
-        plt.plot(traj.x, traj.y, color=colors[i], linestyle='--',
-                 label=f'Iteration {i+1}')
-    plt.plot(trajectory_opt.x, trajectory_opt.y, color='black', linewidth=2,
-             label='Optimal')
+        plt.scatter(traj.x, traj.y, color=colors[i], label=f'Iteration {i+1}')
+    plt.scatter(trajectory_opt.x, trajectory_opt.y, color='black', s=50,
+                label='Optimal')
     plt.scatter(target.x, target.y, color='red', s=200, zorder=5, label='Target')
     plt.xlabel("x (m)")
     plt.ylabel("y (m)")

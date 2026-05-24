@@ -15,16 +15,16 @@ def dynamics (t, state, c):
     yd = state[3]
 
     s_dim = len(state)
-    dz = np.zeros(s_dim)
-    dz[0] = state[2] # d/dt (x)
-    dz[1] = state[3] # d/dt (y)
+    ds = np.zeros(s_dim)
+    ds[0] = state[2] # d/dt (x)
+    ds[1] = state[3] # d/dt (y)
     
     v = np.sqrt(xd*xd + yd*yd)
 
-    dz[2] = -c*(xd*v)
-    dz[3] = -c*(yd*v) - g
+    ds[2] = -c*(xd*v)
+    ds[3] = -c*(yd*v) - g
 
-    return dz
+    return ds
 
 def ground_event(t, z, c):
     # z[1] is the y-coordinate (altitude)
@@ -34,10 +34,10 @@ def ground_event(t, z, c):
 ground_event.terminal = True   # stop integration on event
 ground_event.direction = -1    # only trigger when height is decreasing
 
-def simulateCannon (init: dataClass.Init, param: dataClass.param):
+def simulateCannon (init: dataClass.Init, param: dataClass.dynamicsSimulation):
     # INPUT:
     #  init: dataClass.Init()
-    #  param: dataClass.param()
+    #  param: dataClass.dynamicsSimulation()
 
     # OUTPUT:
     #  soln.t
@@ -49,8 +49,8 @@ def simulateCannon (init: dataClass.Init, param: dataClass.param):
     v0 = init.speed
     th0 = init.angle
 
-    c = param.dynamics.c # drag coeff
-    nGrid = param.singleShooting.nGrid
+    c = param.c # drag coefficient
+    nGrid = param.nGrid
 
     # set up initial condition
     x0 = 0.0
