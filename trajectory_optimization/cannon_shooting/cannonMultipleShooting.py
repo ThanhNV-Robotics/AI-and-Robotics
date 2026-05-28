@@ -1,7 +1,7 @@
 import numpy as np
 from casadi import *
-import dataClass
-from cannonDynamics import simulateCannon
+import trajectory_optimization.cannon_shooting.dataClass as dataClass
+from trajectory_optimization.cannon_shooting.cannonDynamics import simulateCannon
 import matplotlib.pyplot as plt
 
 def cannonMultipleShooting(init: dataClass.Init, target: dataClass.Target, paramMultipleShooting: dataClass.multipleShootingParam, paramDynamics: dataClass.dynamicsSimulation):

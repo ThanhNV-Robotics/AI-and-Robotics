@@ -1,7 +1,7 @@
 import numpy as np
 from casadi import *
-import dataClass
-from cannonDynamics import simulateCannon
+import trajectory_optimization.cannon_shooting.dataClass as dataClass
+from trajectory_optimization.cannon_shooting.cannonDynamics import simulateCannon
 import matplotlib.pyplot as plt
 
 class IterationCallback(Callback):
@@ -156,6 +156,7 @@ if __name__ == "__main__":
     plt.xlim(0, 14)
     plt.ylim(0, 10)
     plt.legend()
+
     plt.title("Single Shooting Optimization Progress")
     plt.show()
 

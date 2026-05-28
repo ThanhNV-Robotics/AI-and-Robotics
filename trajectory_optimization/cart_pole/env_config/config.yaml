@@ -1,0 +1,7 @@
+dynamic_parameters:
+  gravity: 9.81
+  mass_cart: 1.0
+  mass_pole: 0.1
+  length: 0.25
+  damping_pole: 0.1
+  damping_cart: 0.1

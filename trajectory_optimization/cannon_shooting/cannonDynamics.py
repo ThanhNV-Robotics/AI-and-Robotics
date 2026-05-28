@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-import dataClass
+import trajectory_optimization.cannon_shooting.dataClass as dataClass
 
 def dynamics (t, state, c):
     # state s: x,y, xd, yd
