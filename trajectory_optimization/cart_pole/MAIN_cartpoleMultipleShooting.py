@@ -59,12 +59,14 @@ if __name__ == "__main__":
 
     N= config['multiple_shooting']['N'] # Number of shooting segments
     T= config['multiple_shooting']['T'] # Total time horizon
+    nSubSteps = config['multiple_shooting']['nsubsteps'] # Number of sub-steps for integration
 
-    def F_integrate(s, u, T_seg, nSubStep):
+    def F_integrate(s, u):
         # Integrate over one shooting segment using RK4 sub-steps
-        h = T_seg / nSubStep
+        T_seg = T / N # time duration of each shooting segment
+        h = T_seg / nSubSteps
         s_next = s
-        for _ in range(nSubStep):
+        for _ in range(nSubSteps):
             s_next = F_step(s_next, u, h)
         return s_next
     # --- NLP decision variables
@@ -97,7 +99,7 @@ if __name__ == "__main__":
 
     # 1. Continuity (defect) constraints: s_{k+1} = F_integrate(s_k, u_k, T/N, nSubStep)
     for k in range(N):
-        s_k1_pred = F_integrate(s_nodes[k], u_nodes[k],T/N,5) # 
+        s_k1_pred = F_integrate(s_nodes[k], u_nodes[k]) # 
         defect    = s_nodes[k + 1] - s_k1_pred # defect must be 0
         g_list.append(defect)
         lbg += [0.0] * 4 # assign to 0 as it is equality constraints
@@ -121,7 +123,7 @@ if __name__ == "__main__":
 
     # --- Objective ---
     # Minimize sum of squared control inputs
-    dt = T / N
+    dt = T / N # interval duration
     J = 0
     for k in range(N):
         J += u_nodes[k]**2 * dt
@@ -138,51 +140,71 @@ if __name__ == "__main__":
     s_opt = w_opt[:4*(N+1)].reshape((N+1, 4)) # shape (N+1, 4)
     u_opt = w_opt[4*(N+1):].reshape(N) # shape (N,)
 
-    print("Optimal state trajectory (s_opt):")
-    print(s_opt)
-    print("Optimal control trajectory (u_opt):")
-    print(u_opt)
-
-    # # plot the optimal trajectory
-    # plt.figure(figsize=(12, 8))
-    # plt.subplot(3, 1, 1)
-    # plt.plot(np.linspace(0, T, N+1), s_opt[:, 0], label='x (cart position)')
-    # plt.plot(np.linspace(0, T, N+1), s_opt[:, 1], label='theta (pole angle)')
-    # plt.title('Optimal State Trajectory')
-    # plt.xlabel('Time (s)')
-    # plt.ylabel('State')
-    # plt.legend()
-    # plt.show()
 
     # simulate the optimal trajectory
     cart_pole.simulate_state_trajectory(np.linspace(0, T, N+1), s_opt, isRender=True) # looks ok
 
-    # # plot the guess trajectory
-    # plt.figure(figsize=(12, 8))
-    # plt.subplot(3, 1, 1)
-    # plt.plot(t, x_guess[:, 0], label='x (cart position)')
-    # plt.plot(t, x_guess[:, 1], label='theta (pole angle)')
-    # plt.title('State Trajectory Guess')
-    # plt.xlabel('Time (s)')
-    # plt.ylabel('State')
+        # Simulate forward dynamics with the optimal control trajectory using RK4 integrator to verify the solution
+    nSubStepDense = 100 # number of sub-steps for dense simulation
+    t_simu, x_simu = simulate_optimal_control(cart_pole, s_opt[0], u_opt, T, n_substeps=nSubStepDense)
 
-    # plt.subplot(3, 1, 2)
-    # plt.plot(t, x_guess[:, 2], label='dx (cart velocity)')
-    # plt.plot(t, x_guess[:, 3], label='dtheta (pole angular velocity)')
-    # plt.title('State Derivative Trajectory Guess')
-    # plt.xlabel('Time (s)')
-    # plt.ylabel('State Derivative')
+    #compute the maximum defect between the simulated trajectory and the optimal trajectory at the shooting nodes
+    max_defect = 0.0
+    for k in range(N):
+        # find the index in the simulated trajectory that corresponds to the shooting node time
+        t_node = k * dt
+        idx = np.argmin(np.abs(t_simu - t_node))
+        defect = np.linalg.norm(x_simu[idx] - s_opt[k])
+        max_defect = max(max_defect, defect)
 
-    # plt.subplot(3, 1, 3)
-    # plt.plot(t, u_guess, label='u (control input)')
-    # plt.title('Control Trajectory Guess')
-    # plt.xlabel('Time (s)')
-    # plt.ylabel('Control Input')
-    # plt.legend()
-    # plt.show()
+    print(f"Maximum defect between simulated and optimal trajectory: {max_defect}")
+
+    # plot the optimal trajectory
+    plt.figure(figsize=(12, 8))
+    plt.subplot(3, 1, 1)
+    plt.plot(np.linspace(0, T, N+1), s_opt[:, 0], label='x (cart position)')
+    plt.title('Optimal State Trajectory')
+    plt.xlabel('Time (s)')
+    plt.ylabel('x (cart position)')
+    plt.grid(True)
+    plt.legend()
+
+    plt.subplot(3, 1, 2)
+    plt.plot(np.linspace(0, T, N+1), s_opt[:, 1], label='theta (pole angle)', color='orange')
+    plt.xlabel('Time (s)')
+    plt.ylabel('theta (pole angle)')
+    plt.grid(True)
+    plt.legend()
+
+    plt.subplot(3, 1, 3)
+    plt.plot(np.linspace(0, T, N), u_opt, label='u (control force)', color='red')
+    plt.xlabel('Time (s)')
+    plt.ylabel('u (control force)')
+    plt.legend()
+    plt.tight_layout()
+    plt.grid(True)
+
+    # Second plot: compare the simulated trajectory with the optimal trajectory
+    plt.figure(figsize=(12, 8))
+    plt.subplot(2, 1, 1)
+    plt.plot(t_simu, x_simu[:, 0], label='x (simulated)', linestyle='dashed')
+    plt.plot(np.linspace(0, T, N+1), s_opt[:, 0], label='x (optimal)', linestyle='solid')
+    plt.xlabel('Time (s)')
+    plt.ylabel('x (cart position)')
+    plt.grid(True)
+    plt.legend()
+
+    plt.subplot(2, 1, 2)
+    plt.plot(t_simu, x_simu[:, 1], label='theta (simulated)', linestyle='dashed', color='orange')
+    plt.plot(np.linspace(0, T, N+1), s_opt[:, 1], label='theta (optimal)', linestyle='solid', color='orange')
+    plt.xlabel('Time (s)')
+    plt.ylabel('theta (pole angle)')
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+
+    plt.show()
 
 
-    # simulate the guess trajectory
-    # cart_pole.simulate_state_trajectory(t_guess, x_guess, isRender=True) # looks ok
 
     

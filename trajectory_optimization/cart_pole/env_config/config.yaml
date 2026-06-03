@@ -6,5 +6,6 @@ dynamic_parameters:
 
 multiple_shooting:
   N: 50 # number of collocation points
+  nsubsteps: 10 # number of substeps for simulating the dynamics between collocation points
   T: 2.0 # total time horizon for the trajectory
   F_max: 20 # maximum force applied to the cart
