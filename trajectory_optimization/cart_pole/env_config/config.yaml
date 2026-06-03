@@ -1,7 +1,10 @@
 dynamic_parameters:
-  gravity: 9.81
-  mass_cart: 1.0
-  mass_pole: 0.1
-  length: 0.25
-  damping_pole: 0.1
-  damping_cart: 0.1
+  g: 9.81
+  M: 1.0 # mass of the cart
+  m: 0.3 # mass of the pole
+  l: 0.5 # length of the pole
+
+multiple_shooting:
+  N: 50 # number of collocation points
+  T: 2.0 # total time horizon for the trajectory
+  F_max: 20 # maximum force applied to the cart
