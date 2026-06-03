@@ -34,19 +34,26 @@ def ComputeGuessSwingUp (config,
     ddx = -xAmp * (2*np.pi / T)**2 * np.sin(2 * np.pi * t / T) # second derivative of x
 
     # assume the pole/pendulumn goes from bottom (pi) to top (0) in one simple motion
-    theta = np.sign(xAmp)*np.pi*(t-T)/T
-    dtheta = np.sign(xAmp)*np.pi*np.ones_like(t)/T
+    theta = np.pi*(1 - t/T)
+    dtheta = -np.pi*np.ones_like(t)/T
     ddtheta = np.zeros_like(t)
 
     # now compute the inverse dynamics got get u_guess
     x_guess = np.vstack((x, theta, dx, dtheta)).T
     xd_guess = np.vstack((dx, dtheta, ddx, ddtheta)).T
 
+    # append final state to ensure it ends at the desired upright position
+    x_guess = np.vstack((x_guess, np.array([0.0, np.pi, 0.0, 0.0])))
+    xd_guess = np.vstack((xd_guess, np.array([0.0, 0.0, 0.0, 0.0])))
+    
+
     u_guess = np.zeros_like(t)
 
     for i in range(N):
         u_guess[i] = cartpole_obj.ComputeInverseDynamics(x_guess[i], xd_guess[i])
-        
+    
+    t = np.append(t, T)
+
     return x_guess, xd_guess, u_guess, t
 
 # def 
