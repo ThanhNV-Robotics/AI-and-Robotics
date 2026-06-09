@@ -3,6 +3,49 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# latex
+
+# Ignore common LaTeX build files
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.acn
+*.acr
+*.alg
+*.glg
+*.glo
+*.gls
+*.ist
+*.nav
+*.snm
+*.vrb
+*.xdv
+*.dvi
+*.ps
+
+# Ignore latexmk cache directories
+_auto/
+latex.out/
+
+# Keep source and generated PDFs
+!*.tex
+!*.pdf
+
+note/
+
 # C extensions
 *.so
 
@@ -34,6 +77,12 @@ MANIFEST
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+
+# data
+data/
+*.mp4
+*.png
+exp/
 
 # Installer logs
 pip-log.txt
