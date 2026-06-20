@@ -1,0 +1,352 @@
+\section{Problem 3: Three-Axis Gyroscope}
+\begin{figure} [h]
+\centering
+\includegraphics[width=0.7\textwidth]{figures/Problem_3.png}
+\caption{Three-axis gyroscope system.}
+\end{figure}
+We use the same Euler angles and reference frames from HW01:
+\[
+q_1 = \psi,
+\qquad
+q_2 = \theta,
+\qquad
+q_3 = \phi
+\]
+where:
+\begin{itemize}
+    \item $\psi$ is the precession angle,
+    \item $\theta$ is the nutation angle,
+    \item $\phi$ is the rotor spin angle.
+\end{itemize}
+
+From HW01, the angular velocity expressed in the rotor-fixed frame $B$ is:
+\[
+\bm{\omega}_{B/N}
+=
+\dot\theta\mathbf{b}_1
++
+\dot\psi\sin\theta\mathbf{b}_2
++
+(\dot\phi + \dot\psi\cos\theta)\mathbf{b}_3
+\]
+
+\subsection*{(a) Inertia Tensor About $O$}
+
+The rotor is modeled as a uniform axisymmetric disk of radius $R$ and mass $m$.
+
+The principal moments of inertia are:
+\[
+I_1 = I_2 = \frac14 mR^2,
+\qquad
+I_3 = \frac12 mR^2
+\]
+
+Thus the inertia tensor about the fixed point $O$ in frame $B$ is:
+\[
+\mathbf{I}_O
+=
+\begin{bmatrix}
+I_1 & 0 & 0 \\
+0 & I_1 & 0 \\
+0 & 0 & I_3
+\end{bmatrix}
+\]
+
+\subsection*{(b) Angular Momentum About $O$}
+
+The angular momentum is:
+\[
+\mathbf{H}_O = \mathbf{I}_O\bm{\omega}_{B/N}
+\]
+
+Substituting the angular velocity:
+\begin{align}
+\mathbf{H}_O
+&=
+I_1\dot\theta\mathbf{b}_1
++
+I_1\dot\psi\sin\theta\mathbf{b}_2
+\\
+&\quad
++
+I_3(\dot\phi+\dot\psi\cos\theta)\mathbf{b}_3
+\end{align}
+
+Hence the components are:
+\begin{align}
+H_1 &= I_1\dot\theta
+\\
+H_2 &= I_1\dot\psi\sin\theta
+\\
+H_3 &= I_3(\dot\phi+\dot\psi\cos\theta)
+\end{align}
+
+\subsection*{(c) Euler's Equations}
+
+Since point $O$ is fixed in the inertial frame:
+\[
+\sum \mathbf{M}_O^{ext}
+=
+\left(\frac{d\mathbf{H}_O}{dt}\right)_N
+\]
+
+Using the transport theorem:
+\[
+\left(\frac{d\mathbf{H}_O}{dt}\right)_N
+=
+\left(\frac{d\mathbf{H}_O}{dt}\right)_B
++
+\bm{\omega}_{B/N}\times\mathbf{H}_O
+\]
+
+First compute the body-fixed derivative:
+\begin{align}
+\left(\frac{d\mathbf{H}_O}{dt}\right)_B
+&=
+I_1\ddot\theta\mathbf{b}_1
+\\
+&\quad
++
+I_1(\ddot\psi\sin\theta+\dot\psi\dot\theta\cos\theta)\mathbf{b}_2
+\\
+&\quad
++
+I_3(\ddot\phi+\ddot\psi\cos\theta
+-\dot\psi\dot\theta\sin\theta)\mathbf{b}_3
+\end{align}
+
+Now compute the cross product term:
+\[
+\bm{\omega}_{B/N}\times\mathbf{H}_O
+\]
+
+Expanding term-by-term:
+\begin{align}
+\bm{\omega}\times\mathbf{H}
+&=
+(I_3-I_1)\dot\psi\sin\theta(\dot\phi+\dot\psi\cos\theta)\mathbf{b}_1
+\\
+&\quad
++
+(I_1-I_3)\dot\theta(\dot\phi+\dot\psi\cos\theta)\mathbf{b}_2
+\\
+&\quad
++0\mathbf{b}_3
+\end{align}
+
+Therefore the Euler equations become:
+
+\subsubsection*{$\mathbf{b}_1$ component}
+
+\begin{align}
+M_1
+&=
+I_1\ddot\theta
+\\
+&\quad
++
+(I_3-I_1)
+\dot\psi\sin\theta
+(\dot\phi+\dot\psi\cos\theta)
+\end{align}
+
+\subsubsection*{$\mathbf{b}_2$ component}
+
+\begin{align}
+M_2
+&=
+I_1(\ddot\psi\sin\theta+\dot\psi\dot\theta\cos\theta)
+\\
+&\quad
++
+(I_1-I_3)
+\dot\theta(\dot\phi+\dot\psi\cos\theta)
+\end{align}
+
+\subsubsection*{$\mathbf{b}_3$ component}
+
+\[
+M_3
+=
+I_3(\ddot\phi+\ddot\psi\cos\theta
+-\dot\psi\dot\theta\sin\theta)
+\]
+
+These are Euler's equations for the gyroscope.
+
+\subsection*{(d) Steady Precession}
+
+For steady precession:
+\[
+\dot\psi = \Omega_p = \text{constant}
+\]
+\[
+\dot\phi = \Omega_s = \text{constant}
+\]
+\[
+\theta = \text{constant}
+\qquad\Rightarrow\qquad
+\dot\theta = \ddot\theta = 0
+\]
+
+Substituting into the Euler equations:
+
+\subsubsection*{$\mathbf{b}_1$ equation}
+
+\[
+M_1
+=
+(I_3-I_1)
+\Omega_p\sin\theta
+(\Omega_s+\Omega_p\cos\theta)
+\]
+
+\subsubsection*{$\mathbf{b}_2$ equation}
+
+\[
+M_2 = 0
+\]
+
+\subsubsection*{$\mathbf{b}_3$ equation}
+
+\[
+M_3 = 0
+\]
+
+Hence the external torque required to maintain steady precession is:
+\[
+\boxed{
+M_1
+=
+(I_3-I_1)
+\Omega_p\sin\theta
+(\Omega_s+\Omega_p\cos\theta)
+}
+\]
+
+\subsection*{(e) Lagrangian Formulation}
+
+The kinetic energy of the rotor is:
+\[
+T
+=
+\frac12\bm{\omega}^T\mathbf{I}_O\bm{\omega}
+\]
+
+Substituting the angular velocity components:
+\begin{align}
+T
+&=
+\frac12 I_1\dot\theta^2
++
+\frac12 I_1\dot\psi^2\sin^2\theta
+\\
+&\quad
++
+\frac12 I_3(\dot\phi+\dot\psi\cos\theta)^2
+\end{align}
+
+Since the center of mass is fixed at $O$, the potential energy is constant:
+\[
+V = 0
+\]
+
+Thus the Lagrangian is:
+\[
+\mathcal{L}=T
+\]
+
+Applying Lagrange's equations:
+\[
+\frac{d}{dt}
+\left(
+\frac{\partial\mathcal{L}}{\partial\dot q_i}
+\right)
+-
+\frac{\partial\mathcal{L}}{\partial q_i}
+=0
+\]
+
+for:
+\[
+q_i = \{\psi,\theta,\phi\}
+\]
+
+produces the same equations obtained from the Newton-Euler formulation.
+
+\subsection*{(f) Cyclic Coordinates}
+
+The Lagrangian does not explicitly depend on:
+\[
+\psi,
+\qquad
+\phi
+\]
+
+Hence both coordinates are cyclic.
+
+\subsubsection*{Momentum Associated with $\psi$}
+
+\begin{align}
+p_\psi
+&=
+\frac{\partial\mathcal{L}}{\partial\dot\psi}
+\\
+&=
+I_1\dot\psi\sin^2\theta
++
+I_3(\dot\phi+\dot\psi\cos\theta)\cos\theta
+\end{align}
+
+This is the angular momentum about the vertical axis.
+
+\subsubsection*{Momentum Associated with $\phi$}
+
+\begin{align}
+p_\phi
+&=
+\frac{\partial\mathcal{L}}{\partial\dot\phi}
+\\
+&=
+I_3(\dot\phi+\dot\psi\cos\theta)
+\end{align}
+
+This is the angular momentum along the rotor spin axis.
+
+\subsection*{(g) Virtual Work Due to Gravity}
+
+Suppose the center of mass is displaced from $O$ by:
+\[
+\mathbf{r}_{G/O}=\ell\mathbf{b}_3
+\]
+
+The gravitational force is:
+\[
+\mathbf{F}_g = -mg\mathbf{n}_3
+\]
+
+The virtual work is:
+\[
+\delta W
+=
+\mathbf{F}_g\cdot\delta\mathbf{r}_G
+\]
+
+The potential energy is:
+\[
+V = mg\ell\cos\theta
+\]
+
+The generalized forces are obtained from:
+\[
+Q_i = -\frac{\partial V}{\partial q_i}
+\]
+
+Thus:
+\begin{align}
+Q_\psi &= 0
+\\
+Q_\theta &= mg\ell\sin\theta
+\\
+Q_\phi &= 0
+\end{align}

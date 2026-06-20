@@ -1,0 +1,22 @@
+\renewcommand{\thesubsection}{(\alph{subsection})}
+
+\section{Problem 1: Cart-Pole with Actuator Dynamics: DDP and iLQR}
+\subsection*{Prerequisite: cart-Pole Dynamics}
+The dynamic equation of cart-pole system is as follows:
+\begin{align}
+\ddot{x} &= \frac{\ell m_p \sin(\theta)\,\dot{\theta}^{\,2} + u + m_p g \cos(\theta)\sin(\theta)}
+{
+    m_c + m_p\left(1-\cos^2(\theta)\right)
+}\\
+\ddot{\theta} &= -\frac{
+    \ell m_p \cos(\theta)\sin(\theta)\,\dot{\theta}^{\,2}
+    + u\cos(\theta)
+    + (m_c + m_p)g\sin(\theta)
+}{
+    \ell m_c + \ell m_p\left(1-\cos^2(\theta)\right)
+}
+\end{align}
+
+\subsection{ }
+Denote 
+

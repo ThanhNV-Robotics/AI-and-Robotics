@@ -1,0 +1,396 @@
+\section{Problem 2: Disk Pendulum}
+\begin{figure} [h]
+\centering
+\includegraphics[width=0.5\textwidth]{figures/Problem_2.png}
+\caption{Disk pendulum system.}
+\end{figure}
+We use the same generalized coordinates and reference frames from HW01:
+\[
+q_1 = \phi(t),
+\qquad
+q_2 = \theta(t)
+\]
+where:
+\begin{itemize}
+    \item $\phi$ is the rotation angle of the vertical shaft,
+    \item $\theta$ is the pendulum swing angle measured from the downward vertical.
+\end{itemize}
+
+From HW01, the velocity of the point mass is:
+\[
+\mathbf{v}_{m_b}
+=
+\left(R_d\dot\phi + L\dot\phi\cos\theta\right)\mathbf{b}_2
+-
+L\dot\theta\mathbf{b}_3
+\]
+
+Hence:
+\[
+|\mathbf{v}_{m_b}|^2
+=
+\left(R_d\dot\phi + L\dot\phi\cos\theta\right)^2
++
+L^2\dot\theta^2
+\]
+
+\subsection*{(a) Total Kinetic Energy}
+
+The total kinetic energy consists of:
+\begin{itemize}
+    \item rotational kinetic energy of the disk,
+    \item translational kinetic energy of the point mass.
+\end{itemize}
+
+The disk kinetic energy is:
+\[
+T_d = \frac12 I_d \dot\phi^2
+\]
+
+The point-mass kinetic energy is:
+\begin{align}
+T_b
+&= \frac12 m_b |\mathbf{v}_{m_b}|^2
+\\
+&=
+\frac12 m_b
+\left[
+\left(R_d\dot\phi + L\dot\phi\cos\theta\right)^2
++
+L^2\dot\theta^2
+\right]
+\end{align}
+
+Therefore the total kinetic energy is:
+\begin{align}
+T
+&= T_d + T_b
+\\
+&=
+\frac12 I_d\dot\phi^2
++
+\frac12 m_b
+\left(R_d + L\cos\theta\right)^2 \dot\phi^2
++
+\frac12 m_bL^2\dot\theta^2
+\end{align}
+
+\subsection*{(b) Potential Energy}
+
+Choose the zero potential energy datum at the pivot point $P$.
+
+The vertical position of the point mass is:
+\[
+z = -L\cos\theta
+\]
+
+Hence the potential energy is:
+\[
+V = m_bgL\sin\theta
+\]
+
+\subsection*{(c) Lagrange Equations}
+
+The Lagrangian is:
+\[
+\mathcal{L} = T - V
+\]
+
+Substituting the expressions for $T$ and $V$:
+\begin{align}
+\mathcal{L}
+&=
+\frac12 I_d\dot\phi^2
++
+\frac12 m_b
+\left(R_d + L\cos\theta\right)^2\dot\phi^2
+\\
+&\quad
++
+\frac12 m_bL^2\dot\theta^2
+-
+m_bgL\sin\theta
+\end{align}
+
+\subsubsection*{Equation for $\phi$}
+
+Compute:
+\[
+\frac{\partial \mathcal{L}}{\partial \dot\phi}
+=
+\left[
+I_d + m_b\left(R_d+L\cos\theta\right)^2
+\right]\dot\phi
+\]
+
+Taking the time derivative:
+\begin{align}
+\frac{d}{dt}
+\left(
+\frac{\partial \mathcal{L}}{\partial \dot\phi}
+\right)
+&=
+\left[
+I_d + m_b(R_d+L\cos\theta)^2
+\right]\ddot\phi
+\\
+&\quad
+-2m_bL(R_d+L\cos\theta)\sin\theta\dot\theta\dot\phi
+\end{align}
+
+Since:
+\[
+\frac{\partial \mathcal{L}}{\partial \phi} = 0
+\]
+
+The equation of motion for $\phi$ is:
+\begin{align}
+&\left[
+I_d + m_b(R_d+L\cos\theta)^2
+\right]\ddot\phi
+\\
+&\quad
+-2m_bL(R_d+L\cos\theta)\sin\theta\dot\theta\dot\phi
+=0
+\end{align}
+
+\subsubsection*{Equation for $\theta$}
+
+Compute:
+\[
+\frac{\partial \mathcal{L}}{\partial \dot\theta}
+= m_bL^2\dot\theta
+\]
+
+Thus:
+\[
+\frac{d}{dt}
+\left(
+\frac{\partial \mathcal{L}}{\partial \dot\theta}
+\right)
+= m_bL^2\ddot\theta
+\]
+
+Now compute:
+\begin{align}
+\frac{\partial \mathcal{L}}{\partial \theta}
+&=
+-m_bL(R_d+L\cos\theta)\sin\theta\dot\phi^2
+\\
+&\quad
+-m_bgL\cos\theta
+\end{align}
+
+Hence the equation of motion for $\theta$ is:
+\[
+m_bL^2\ddot\theta
++
+m_bL(R_d+L\cos\theta)\sin\theta\dot\phi^2
+-
+m_bgL\cos\theta
+=0
+\]
+
+\subsection*{(d) Matrix Form}
+
+Define:
+\[
+\mathbf{q}
+=
+\begin{bmatrix}
+\phi \\
+\theta
+\end{bmatrix}
+\]
+
+The equations of motion can be written as:
+\[
+\mathbf{M}(q)\ddot q
++
+\mathbf{h}(q,\dot q)
++
+\mathbf{g}(q)
+=0
+\]
+
+The mass matrix is:
+\[
+\mathbf{M}(q)
+=
+\begin{bmatrix}
+I_d + m_b(R_d+L\cos\theta)^2 & 0 \\
+0 & m_bL^2
+\end{bmatrix}
+\]
+
+The velocity-coupling vector is:
+\[
+\mathbf{h}(q,\dot q)
+=
+\begin{bmatrix}
+-2m_bL(R_d+L\cos\theta)\sin\theta\dot\theta\dot\phi \\
+m_bL(R_d+L\cos\theta)\sin\theta\dot\phi^2
+\end{bmatrix}
+\]
+
+The gravity vector is:
+\[
+\mathbf{g}(q)
+=
+\begin{bmatrix}
+0 \\
+-m_bgL\cos\theta
+\end{bmatrix}
+\]
+
+\subsection*{(e) Cyclic Coordinate}
+
+Since the Lagrangian does not explicitly depend on $\phi$:
+\[
+\frac{\partial \mathcal{L}}{\partial \phi}=0
+\]
+
+Therefore $\phi$ is a cyclic (ignorable) coordinate.
+
+The conserved generalized momentum is:
+\begin{align}
+p_\phi
+&=
+\frac{\partial \mathcal{L}}{\partial \dot\phi}
+\\
+&=
+\left[
+I_d + m_b(R_d+L\cos\theta)^2
+\right]\dot\phi
+\end{align}
+
+This quantity represents the total angular momentum about the vertical shaft axis.
+
+\subsection*{(f) Virtual Work}
+
+Suppose an external horizontal force $\mathbf{F}$ acts at the point mass $m_b$.
+
+The position vector of the point mass is:
+\[
+\mathbf{r}_{m_b}
+=
+R_d\mathbf{a}_1 + L\mathbf{b}_1
+\]
+
+The virtual displacement is:
+\[
+\delta \mathbf{r}_{m_b}
+=
+\frac{\partial \mathbf{r}_{m_b}}{\partial \phi}\delta\phi
++
+\frac{\partial \mathbf{r}_{m_b}}{\partial \theta}\delta\theta
+\]
+
+The virtual work is:
+\[
+\delta W
+=
+\mathbf{F}\cdot \delta\mathbf{r}_{m_b}
+\]
+
+Comparing with:
+\[
+\delta W = Q_\phi\delta\phi + Q_\theta\delta\theta
+\]
+
+The generalized forces are:
+\begin{align}
+Q_\phi
+&=
+\mathbf{F}\cdot
+\frac{\partial \mathbf{r}_{m_b}}{\partial \phi}
+\\
+Q_\theta
+&=
+\mathbf{F}\cdot
+\frac{\partial \mathbf{r}_{m_b}}{\partial \theta}
+\end{align}
+
+\subsection*{(g) Conservation of Mechanical Energy}
+
+For the unforced and frictionless system:
+\[
+E = T + V
+\]
+
+Substituting the expressions:
+\begin{align}
+E
+&=
+\frac12 I_d\dot\phi^2
++
+\frac12 m_b(R_d+L\cos\theta)^2\dot\phi^2
+\\
+&\quad
++
+\frac12 m_bL^2\dot\theta^2
+-
+m_bgL\cos\theta
+\end{align}
+
+Since there are no non-conservative forces acting on the system:
+\[
+\frac{dE}{dt}=0
+\]
+
+Therefore the total mechanical energy is conserved.
+
+\subsection*{(h) Bonus: Linearization About Steady Spin}
+
+Consider small oscillations about:
+\[
+\theta = 0,
+\qquad
+\dot\phi = \Omega_0
+\]
+
+Using the approximations:
+\[
+\sin\theta \approx \theta,
+\qquad
+\cos\theta \approx 1
+\]
+
+The $\theta$ equation becomes:
+\begin{align}
+m_bL^2\ddot\theta
+&+
+m_bL(R_d+L)\Omega_0^2\theta
+\\
+&+
+m_bgL\theta = 0
+\end{align}
+
+Dividing by $m_bL^2$:
+\[
+\ddot\theta
++
+\left(
+\frac{(R_d+L)\Omega_0^2}{L}
++
+\frac{g}{L}
+\right)\theta
+=0
+\]
+
+Hence the linearized small-angle equation is:
+\[
+\boxed{
+\ddot\theta
++
+\omega_n^2\theta = 0
+}
+\]
+with:
+\[
+\omega_n^2
+=
+\frac{(R_d+L)\Omega_0^2}{L}
++
+\frac{g}{L}
+\]
