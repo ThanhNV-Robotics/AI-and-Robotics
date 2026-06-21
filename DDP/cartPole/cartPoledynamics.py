@@ -2,7 +2,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
-
+import casadi as ca # to use auto differentiate fcn
 
 class cartPole:
     def __init__(self, param):
@@ -13,16 +13,16 @@ class cartPole:
         self.m = param['m']
         self.l = param['l']
 
-    def dynamics(self, state, u):
+    def dynamics(self, x, u):
         M = self.M
         m = self.m
         l = self.l
         g = self.g
 
-        x1 = state[0] # x
-        x2 = state[1] # theta
-        x3 = state[2] # dx
-        x4 = state[3] # dtheta
+        x1 = x[0] # x
+        x2 = x[1] # theta
+        x3 = x[2] # dx
+        x4 = x[3] # dtheta
 
         s2 = np.sin(x2)
         c2 = np.cos(x2)
@@ -33,7 +33,8 @@ class cartPole:
         dx3 = (u + m * l * x4**2 * s2  + m*g*c2*s2) / (M + m - m * c2**2)
         dx4 = -(g*(M+m)*s2 + c2*(u+m*l*x4**2*s2)) / (l*(M + m - m * c2**2))
 
-        return np.array([dx1, dx2, dx3, dx4])
+        # we need to return cassadi variable to use auto differentiate
+        return ca.vertcat(dx1, dx2, dx3, dx4)
     
     # Discreted Dynamic using Euler integration
     
@@ -41,10 +42,16 @@ class cartPole:
         x_pred = x + h*self.dynamics(x,u)
         return x_pred
     
-    def dFdx (self, x, u):
+    def dFdx (self, x, u, h):
+        # Inputs:
+        # x: state vector (n x 1)
+        # u: control vector
+        # h: sample time
+
         # Compute gradient of discrete dynamic w.r.t state 
-        
-        pass
+        Fd = self.DiscreteEulerDynamics(x,u,h)
+        gradFd = ca.jacobian(Fd, x)
+        return gradFd
     
     def stage_cost (self, xtraj, utraj):
         # compute state-cost (cost-to-go)
@@ -83,7 +90,7 @@ class cartPole:
         assert len(u_traj) == len(t_traj), "Control trajectory and time trajectory must have the same length."
         def ode(t, state):
             u = np.interp(t, t_traj, u_traj)
-            return self.dynamics(state, u)
+            return np.array(self.dynamics(state, u)).flatten()
 
         sol = solve_ivp(ode, (t_traj[0], t_traj[-1]), init_state, t_eval=t_traj)
         if isRender:

@@ -7,7 +7,7 @@ dynamic_parameters:
 DDP:
   Nt: 100 # number of discreted trajectory points
   T: 2.0 # total time horizon for the trajectory
-  Qk = 1.0 # lagrange cost weight for state x
-  QN = 2.0 # terminal cost weight for state x
-  R = 0.1 # cost weight for control force
+  Qk: 1.0 # lagrange cost weight for state x
+  QN: 2.0 # terminal cost weight for state x
+  R: 0.1 # cost weight for control force
 
