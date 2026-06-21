@@ -1,0 +1,55 @@
+\clearpage
+
+\begin{center}
+    {\Huge\bfseries Appendix}
+\end{center}
+
+\vspace{1cm}
+
+\appendix
+\renewcommand{\thesection}{\Alph{section}}
+
+\section{KKT Conditions in Optimization Problems}
+\label{app:kkt}
+\subsection{The Lagrangian Function}
+Consider the following optimization problem:
+\begin{equation}
+    \begin{aligned}
+        \min_{\mathbf{x}} & \quad f(\mathbf{x}) \\
+        \text{subject to} & \quad g_i(\mathbf{x}) \leq 0, \quad i = 1, \ldots, m \\
+        & \quad h_j(\mathbf{x}) = 0, \quad j = 1, \ldots, p
+    \end{aligned}
+\end{equation}
+where the feasible domain $\mathcal{D} = \text{\textbf{dom}}(f) \cap \bigcap_{i=1}^m \text{\textbf{dom}}(g_i) \cap \bigcap_{j=1}^p \text{\textbf{dom}}(h_j)$ is non-empty, e.g $\mathcal{D} \neq \emptyset$.\\
+We define the Lagrangian $L(\mathbf{x}, \boldsymbol{\lambda}, \boldsymbol{\mu}): \mathbf{R}^n \times \mathbf{R}^m \times \mathbf{R}^p \to \mathbf{R}$ as:
+\begin{equation}
+    L(\mathbf{x}, \boldsymbol{\lambda}, \boldsymbol{\mu}) = f(\mathbf{x}) + \sum_{i=1}^m \lambda_i g_i(\mathbf{x}) + \sum_{j=1}^p \mu_j h_j(\mathbf{x})
+\end{equation}
+where $\boldsymbol{\lambda} = (\lambda_1, \ldots, \lambda_m)$ and $\boldsymbol{\mu} = (\mu_1, \ldots, \mu_p)$ are the Lagrange multipliers associated with the inequality and equality constraints, respectively. In a matrix form, we can write:
+
+\begin{equation}
+    L(\mathbf{x}, \boldsymbol{\lambda}, \boldsymbol{\mu}) = f(\mathbf{x}) + \boldsymbol{\lambda}^T \mathbf{g}(\mathbf{x}) + \boldsymbol{\mu}^T \mathbf{h}(\mathbf{x})
+\end{equation}
+where $\mathbf{g}(\mathbf{x}) = (g_1(\mathbf{x}), \ldots, g_m(\mathbf{x}))^T$ and $\mathbf{h}(\mathbf{x}) = (h_1(\mathbf{x}), \ldots, h_p(\mathbf{x}))^T$ are vectors of the inequality and equality constraint functions, respectively.\\
+If $\lambda_i \geq 0$ for all $i = 1, \ldots, m$, then it is easy to show that:
+\begin{equation}
+    L(\mathbf{x}, \boldsymbol{\lambda}, \boldsymbol{\mu}) \leq f(\mathbf{x}) \quad \forall \mathbf{x} \in \mathcal{D}, \lambda_i \geq 0
+    \label{eq: Lagrangian inequality}
+\end{equation}
+as $\forall x \in \mathcal{D}, \lambda_i \geq 0, g_i(\mathbf{x}) \leq 0 \implies \lambda_i g_i(\mathbf{x}) \leq 0$ and $\forall x \in \mathcal{D}, h_j(\mathbf{x}) = 0 \implies \mu_j h_j(\mathbf{x}) = 0$.\\
+Therefore, we have:
+\begin{equation}
+    f(\mathbf{x}) + \boldsymbol{\lambda}^T \mathbf{g}(\mathbf{x}) + \boldsymbol{\mu}^T \mathbf{h}(\mathbf{x}) \leq f(\mathbf{x}) \quad \forall \mathbf{x} \in \mathcal{D}
+\end{equation}
+Taking the infimum over $\mathbf{x} \in \mathcal{D}$ on both sides of \ref{eq: Lagrangian inequality}, we have:
+\begin{equation}
+    \inf_{\mathbf{x} \in \mathcal{D}} L(\mathbf{x, \boldsymbol{\lambda}, \boldsymbol{\mu})} \leq \inf_{\mathbf{x} \in \mathcal{D}} f(\mathbf{x})
+\end{equation}
+Given $\boldsymbol{\lambda}, \boldsymbol{\mu}$, the formula $\inf_{\mathbf{x} \in \mathcal{D}} L(\mathbf{x, \boldsymbol{\lambda}, \boldsymbol{\mu})}$ is called the Lagrange dual function, denoted as $g(\boldsymbol{\lambda}, \boldsymbol{\mu}): \mathbf{R}^m \times \mathbf{R}^p \to \mathbf{R}$:
+\begin{equation}
+    g(\boldsymbol{\lambda}, \boldsymbol{\mu}) = \inf_{\mathbf{x} \in \mathcal{D}} L(\mathbf{x, \boldsymbol{\lambda}, \boldsymbol{\mu})}
+\end{equation}
+And again, if $\lambda_i \geq 0$ for all $i = 1, \ldots, m$, we have:
+\begin{equation}
+    g(\boldsymbol{\lambda}, \boldsymbol{\mu}) \leq \inf_{\mathbf{x} \in \mathcal{D}} f(\mathbf{x})
+\end{equation}

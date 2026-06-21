@@ -4,13 +4,13 @@
 \subsection*{Prerequisite: cart-Pole Dynamics}
 The dynamic equation of cart-pole system is as follows:
 \begin{align}
-\ddot{x} &= \frac{\ell m_p \sin(\theta)\,\dot{\theta}^{\,2} + u + m_p g \cos(\theta)\sin(\theta)}
+\ddot{x} &= \frac{\ell m_p \sin(\theta)\,\dot{\theta}^{\,2} + F + m_p g \cos(\theta)\sin(\theta)}
 {
     m_c + m_p\left(1-\cos^2(\theta)\right)
 }\\
 \ddot{\theta} &= -\frac{
     \ell m_p \cos(\theta)\sin(\theta)\,\dot{\theta}^{\,2}
-    + u\cos(\theta)
+    + F\cos(\theta)
     + (m_c + m_p)g\sin(\theta)
 }{
     \ell m_c + \ell m_p\left(1-\cos^2(\theta)\right)
@@ -18,5 +18,137 @@ The dynamic equation of cart-pole system is as follows:
 \end{align}
 
 \subsection{ }
-Denote 
+Denote $\mathbf{x} = [x, \theta, \dot{x}, \dot{\theta}, F]$ as the augumented state vector. The dynamics of cart-pole system can be written as follows:
+
+\begin{equation}
+    \dot{\mathbf{x}} = 
+\begin{bmatrix}
+    \dot{x}\\
+    \dot{\theta}\\
+    \ddot{x}\\
+    \ddot{\theta}\\
+    \dot{F}
+\end{bmatrix}
+= 
+\begin{bmatrix}
+    \dot{x}\\
+    \dot{\theta}\\
+    \frac{\ell m_p \sin(\theta)\,\dot{\theta}^{\,2} + F + m_p g \cos(\theta)\sin(\theta)}
+{
+    m_c + m_p\left(1-\cos^2(\theta)\right)
+}\\
+    -\frac{
+    \ell m_p \cos(\theta)\sin(\theta)\,\dot{\theta}^{\,2}
+    + F\cos(\theta)
+    + (m_c + m_p)g\sin(\theta)
+}{
+    \ell m_c + \ell m_p\left(1-\cos^2(\theta)\right)
+}\\
+    \frac{u-F}{\tau_a}
+\end{bmatrix}
+= \boldsymbol{f}(\mathbf{x},u)
+\end{equation}
+
+\begin{itemize}
+    \item Forward Euler Discretization
+\end{itemize}
+
+Given the continuous-time nonlinear dynamics
+
+\begin{equation}
+\dot{\mathbf{x}} = \boldsymbol{f}(\mathbf{x},u),
+\end{equation}
+
+the Forward Euler method with sampling time \(h\) approximates the state evolution as
+
+\begin{equation}
+\mathbf{x}_{k+1}
+=
+\mathbf{x}_k
++
+h \boldsymbol{f}(\mathbf{x}_k,u_k).
+\end{equation}
+
+For the augmented cart-pole state the discrete-time dynamics become
+\begin{align}
+x_{k+1}
+&=
+x_k + h \dot{x}_k, \\
+\theta_{k+1}
+&=
+\theta_k + h \dot{\theta}_k, \\
+\dot{x}_{k+1}
+&=
+\dot{x}_k + h \ddot{x}_k, \\
+\dot{\theta}_{k+1}
+&=
+\dot{\theta}_k + h \ddot{\theta}_k, \\
+F_{k+1}
+&=
+F_k + h \frac{u_k - F_k}{\tau_a}.
+\end{align}
+
+Therefore, the discrete nonlinear dynamics can be written compactly as
+
+\begin{equation}
+\mathbf{x}_{k+1}
+=
+F_d(\mathbf{x}_k,u_k)
+=
+\mathbf{x}_k + h \boldsymbol{f}(\mathbf{x}_k,u_k).
+\end{equation}
+
+As an alternative, a higher-order numerical integration method such as the fourth-order Runge--Kutta (RK4) scheme may be used to improve integration accuracy.
+
+\subsection{}
+Define $\mathbf{X} = [\mathbf{x}_1, ... \mathbf{x}_N]$ and $ \mathbf{U} = [u_0,...,u_{N-1}]$ as matrices of state and control trajectory. Then a cost function for the swing-up task is as follows:
+\begin{equation}
+    J(\mathbf{X},\mathbf{U}) = \frac{1}{2} (\mathbf{x}_N -\mathbf{x}_{ref})^T\mathbf{Q}_N (\mathbf{x}_N -\mathbf{x}_{ref}) + \frac{1}{2}\sum_{k = 0}^{N-1}\left((\mathbf{x}_k -\mathbf{x}_{ref})^T \mathbf{Q} (\mathbf{x}_k -\mathbf{x}_{ref}) + Ru_k^2 \right)
+\end{equation}
+where
+\begin{equation}
+    l_N({\mathbf{x}_N}) = \frac{1}{2} (\mathbf{x}_N -\mathbf{x}_{ref})^T\mathbf{Q}_N (\mathbf{x}_N -\mathbf{x}_{ref})
+\end{equation}
+is the terminal cost and 
+\begin{equation}
+    \sum_{k = 0}^{N-1}l_k (\mathbf{x}_k, u_k)  = \frac{1}{2}\sum_{k = 0}^{N-1}\left((\mathbf{x}_k -\mathbf{x}_{ref})^T \mathbf{Q} (\mathbf{x}_k -\mathbf{x}_{ref}) + Ru_k^2 \right)
+\end{equation}
+is the running cost. Define the value function:
+\begin{equation}
+    V(\mathbf{x}_k) = \min_{u_k,u_{k+1}, \ldots , u_{N-1}}\left(\sum_{t = k}^{N-1}l_k (\mathbf{x}_t, u_t) +   l_N(\mathbf{x}_N) \right)
+\end{equation}
+The Bellman optimality condition provides a recursion on $V(\mathbf{x}_k)$ as follows:
+\begin{align}
+    V(\mathbf{x}_k)  &= \min_{u_k}\left(l_k(\mathbf{x}_k,u_k) + V(\mathbf{x}_{k+1})\right)\\
+    &= \min_{u_k}\left(l_k(\mathbf{x}_k,u_k) + V_{k+1}(F_d(\mathbf{x}, u))\right)
+\end{align}
+\subsection{}
+Define the local action-value function $Q(\delta\mathbf{x}_k, \delta u_k)$ as follows:
+\begin{equation}
+    Q(\delta\mathbf{x}_k, \delta u_k) = l_k(\mathbf{x}_k + \delta\mathbf{x}_k,u_k+\delta u_k) + V_{k+1}(F_d(\mathbf{x}_k + \delta\mathbf{x}_k,u_k+\delta u_k))
+    \label{eq: action value}
+\end{equation}
+Then we can approximate $Q(\delta\mathbf{x}_k, \delta u_k)$ in a quadratic form by expanding to 2-nd order of its Taylor expansion:
+\begin{align}
+    \label{eq: Q value quadratic}
+    Q(\delta\mathbf{x}_k, \delta u_k) \approx Q(\mathbf{0},0) + Q_{x,k}^T \delta \mathbf{x} + Q_{u,k}^T \delta u_k &+ \frac{1}{2}\left(\delta \mathbf{x}_k^T Q_{xx,k}\delta\mathbf{x}_k + \delta u_k^T Q_{uu,k}\delta u_k\right)\\ 
+   &+ \delta u_k^T Q_{ux,k}\delta \mathbf{x}_k \nonumber   
+\end{align}
+where from definition of \ref{eq: action value} we can determine:
+\begin{align*}
+Q_k(0,0) &= l(\mathbf{x}_k, u_k) + V_{k+1}(\mathbf{x}_{k+1}), \\
+Q_{x} &= l_{x} + F_{dx}^{T} V_{x,k+1}, \\
+Q_{u} &= l_{u} + F_{d,u}^{T} V_{x,k+1}, \\
+Q_{xx} &= l_{xx} + F_{dx}^{T} V_{xx,k+1} F_{dx} + V_{x,k+1}^{T} F_{dxx}, \\
+Q_{uu} &= l_{uu} + F_{d,u}^{T} V_{xx,k+1} F_{du} + V_{x,k+1}^{T} F_{duu}, \\
+Q_{ux} &= l_{ux} + F_{du}^{T} V_{xx,k+1} F_{dx} + V_{x,k+1}^{T} F_{dux}.
+\end{align*}
+where the subscription $k+1$ indicate the value taken at time $k+1$. Otherwise we evaluate at time $k$.
+\subsection{}
+Now we minimize $Q(\delta \mathbf{x}_k, \delta u_k)$ in \ref{eq: Q value quadratic} over $\delta u_k$, we have
+\begin{align}
+    \delta u_k &= \arg \min_{\delta u_k}{Q(\delta \mathbf{x}_k, \delta u_k)} = \arg \min_{\delta u_k} \frac{1}{2}\delta u_k^T Q_{uu,k}\delta u_k  + Q_{u,k}^T \delta u_k + \delta u_k^T Q_{ux,k}\delta \mathbf{x}_k\\
+    &= -Q_{uu}^{-1}
+\end{align}
+
 
