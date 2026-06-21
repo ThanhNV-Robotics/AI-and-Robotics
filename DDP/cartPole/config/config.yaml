@@ -4,8 +4,10 @@ dynamic_parameters:
   m: 0.3 # mass of the pole
   l: 0.5 # length of the pole
 
-multiple_shooting:
-  N: 50 # number of collocation points
-  nsubsteps: 10 # number of substeps for simulating the dynamics between collocation points
+DDP:
+  Nt: 100 # number of discreted trajectory points
   T: 2.0 # total time horizon for the trajectory
-  F_max: 20 # maximum force applied to the cart
+  Qk = 1.0 # lagrange cost weight for state x
+  QN = 2.0 # terminal cost weight for state x
+  R = 0.1 # cost weight for control force
+

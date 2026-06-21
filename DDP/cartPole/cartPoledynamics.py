@@ -35,6 +35,25 @@ class cartPole:
 
         return np.array([dx1, dx2, dx3, dx4])
     
+    # Discreted Dynamic using Euler integration
+    
+    def DiscreteEulerDynamics(self, x, u, h):
+        x_pred = x + h*self.dynamics(x,u)
+        return x_pred
+    
+    def dFdx (self, x, u):
+        # Compute gradient of discrete dynamic w.r.t state 
+        
+        pass
+    
+    def stage_cost (self, xtraj, utraj):
+        # compute state-cost (cost-to-go)
+        J = 0.0
+        Nt = len(xtraj) # number of trajectory point
+        return
+    
+    # def dF
+    
     def ComputeInverseDynamics(self, state, dstate):
         # Compute control input u given state and desired acceleration
         M = self.M
