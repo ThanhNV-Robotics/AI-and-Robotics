@@ -3,11 +3,12 @@ dynamic_parameters:
   M: 1.0 # mass of the cart
   m: 0.3 # mass of the pole
   l: 0.5 # length of the pole
+  h: 0.05 # sec, sampling time for the discrited euler dynamics
 
 DDP:
-  Nt: 100 # number of discreted trajectory points
-  T: 2.0 # total time horizon for the trajectory
+  T: 3.0 # total time horizon for the trajectory
   Qk: 1.0 # lagrange cost weight for state x
   QN: 2.0 # terminal cost weight for state x
   R: 0.1 # cost weight for control force
-
+  max_iter: 100 # maximum iteration
+  with_hessian: 0 # use Hessian or not

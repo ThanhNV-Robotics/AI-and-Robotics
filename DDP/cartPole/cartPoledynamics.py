@@ -12,7 +12,24 @@ class cartPole:
         self.M = param['M']
         self.m = param['m']
         self.l = param['l']
+        self.h = param['h']
 
+        # Pre-build CasADi functions for Jacobians (compiled once, evaluated many times)
+        x_sym = ca.MX.sym('x', 4) # state variable, sym type
+        u_sym = ca.MX.sym('u') # control variable, sym type
+        Fd_sym = self.DiscreteEulerDynamics(x_sym, u_sym)
+        Jx_sym = ca.jacobian(Fd_sym, x_sym)   # (4x4) MX expression
+        Ju_sym = ca.jacobian(Fd_sym, u_sym)   # (4x1) MX expression
+
+        self.Fd = ca.Function('Fd',    [x_sym, u_sym], [Fd_sym]) # discreted dynamic eqn
+
+        self._f_dFdx    = ca.Function('dFdx',    [x_sym, u_sym], [Jx_sym])
+        self._f_dFdu    = ca.Function('dFdu',    [x_sym, u_sym], [Ju_sym])
+
+        # second derivatives: differentiate the symbolic Jacobian (not the compiled Function)
+        self._f_d2F_dxdx = ca.Function('d2F_dxdx', [x_sym, u_sym], [ca.jacobian(Jx_sym, x_sym)])  # (16x4)
+        self._f_d2F_dxdu = ca.Function('d2F_dxdu', [x_sym, u_sym], [ca.jacobian(Jx_sym, u_sym)])  # (16x1)
+        self._f_d2F_dudu = ca.Function('d2F_dudu', [x_sym, u_sym], [ca.jacobian(Ju_sym, u_sym)])  # (4x1)
     def dynamics(self, x, u):
         M = self.M
         m = self.m
@@ -38,26 +55,43 @@ class cartPole:
     
     # Discreted Dynamic using Euler integration
     
-    def DiscreteEulerDynamics(self, x, u, h):
-        x_pred = x + h*self.dynamics(x,u)
+    def DiscreteEulerDynamics(self, x, u):
+        x_pred = x + self.h*self.dynamics(x,u)
         return x_pred
     
-    def dFdx (self, x, u, h):
-        # Inputs:
-        # x: state vector (n x 1)
-        # u: control vector
-        # h: sample time
-
-        # Compute gradient of discrete dynamic w.r.t state 
-        Fd = self.DiscreteEulerDynamics(x,u,h)
-        gradFd = ca.jacobian(Fd, x)
-        return gradFd
+    def dFdx(self, x, u):
+        return np.array(self._f_dFdx(x, u))
     
-    def stage_cost (self, xtraj, utraj):
-        # compute state-cost (cost-to-go)
-        J = 0.0
-        Nt = len(xtraj) # number of trajectory point
-        return
+    # Second-order derivatives (for second-order DDP)
+    # Returns reshaped (n_x, n_x, n_x) tensor — slice [:, :, i] = ∂²Fᵢ/∂x²
+    def d2Fdxdx(self, x, u):
+        return np.array(self._f_d2F_dxdx(x, u))   # (16x4)
+
+    def d2Fdxdu(self, x, u):
+        return np.array(self._f_d2F_dxdu(x, u))   # (16x1)
+
+    def d2Fdudu(self, x, u):
+        return np.array(self._f_d2F_dudu(x, u))   # (4x1)
+    
+    def finite_dFdx(self, x, u):
+        eps = 1e-6
+        n = len(x)
+        dF_dx = np.zeros([n, n])
+        F0 = np.array(self.DiscreteEulerDynamics(x, u)).flatten()
+
+        for i in range(n):
+            delta_x = np.zeros(n)
+            delta_x[i] = eps                                          # perturb one element at a time
+            Fi = np.array(self.DiscreteEulerDynamics(x + delta_x, u)).flatten()
+            dF_dx[:, i] = (Fi - F0) / eps                            # i-th column = ∂F/∂xᵢ
+
+        return dF_dx
+
+
+
+
+    def dFdu(self, x, u):
+        return np.array(self._f_dFdu(x, u))
     
     # def dF
     

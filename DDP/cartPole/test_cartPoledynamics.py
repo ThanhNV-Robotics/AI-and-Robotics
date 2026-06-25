@@ -8,40 +8,41 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
     cartpole_obj = cartPole(config['dynamic_parameters'])
 
-    # CasADi symbolic state and control
-    x_sym = ca.MX.sym('x', 4)
-    u_sym = ca.MX.sym('u')
 
-    x_test = np.array([0.0, np.pi / 3, 0.0, 0.0])
-    u_test = 0.0
-    h = 0.02
-
-    # --- Test 1: symbolic dynamics ---
-    print("=== Test CasADi symbolic dynamics ===")
-    dx_sym = cartpole_obj.dynamics(x_sym, u_sym)
-    f_dyn = ca.Function('f_dyn', [x_sym, u_sym], [dx_sym])
-    dx_val = np.array(f_dyn(x_test, u_test)).flatten()
-    print("  dx at test point:", dx_val)
-
-    # --- Test 2: discrete Euler dynamics ---
-    print("\n=== Test DiscreteEulerDynamics ===")
-    x_next_sym = cartpole_obj.DiscreteEulerDynamics(x_sym, u_sym, h)
-    f_disc = ca.Function('f_disc', [x_sym, u_sym], [x_next_sym])
-    x_next_val = np.array(f_disc(x_test, u_test)).flatten()
-    print("  x_next at test point:", x_next_val)
-
-    # --- Test 3: Jacobian dFdx ---
-    print("\n=== Test dFdx (state Jacobian) ===")
-    J_sym = cartpole_obj.dFdx(x_sym, u_sym, h)
-    f_jac = ca.Function('f_jac', [x_sym, u_sym], [J_sym])
-    J_val = np.array(f_jac(x_test, u_test))
-    print("  Jacobian (4x4):")
-    print(J_val)
-
-    # --- Test 4: forward simulation (numerical, with render) ---
+    # --- Test 1: forward simulation (numerical, with render) ---
     print("\n=== Test simulateForwardDynamics ===")
     init_state = np.array([0.0, np.pi / 3, 0.0, 0.0])
-    t = np.linspace(0, 10, 500)
+    t = np.linspace(0, 5, 500)
     u_traj = 0 * t
     t_sol, state = cartpole_obj.simulateForwardDynamics(init_state, u_traj, t, isRender=True)
     print("  Simulation complete. State shape:", state.shape)
+
+    # Test Jacobian matrix
+    print("Testing Dynamic Jacobian Computation")
+
+    # State boundary
+    x_upper = np.array([2,2*np.pi,10,10])
+    x_lower = np.array([-2,-2*np.pi,-10,-10])
+
+    # Boundary for control input
+    u_lower = -50
+    u_upper = 50
+
+    x_init = np.random.uniform(low=x_lower, high=x_upper)
+    print("input state", x_init)
+
+    u_init = np.random.uniform(u_lower,u_upper)
+    print("control input: ", u_init)
+
+    dFd_dx_cad = cartpole_obj.dFdx(x_init, u_init)
+    print("Jacobian by cassadi:, ")
+    print(dFd_dx_cad)
+
+    print("Jacobian by finite different")
+
+    dFd_dx_finite = cartpole_obj.finite_dFdx(x_init,u_init)
+    print (dFd_dx_finite)
+
+    # Hessian matrix
+    print("Hessian d2F_dxdx by cassadi: ")
+    d2F_dxdx = cartpole_obj.dF2_dxdx(x_init,u_init)
