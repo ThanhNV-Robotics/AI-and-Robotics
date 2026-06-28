@@ -58,6 +58,61 @@ class cartPole:
     def DiscreteEulerDynamics(self, x, u):
         x_pred = x + self.h*self.dynamics(x,u)
         return x_pred
+
+    def RolloutDiscreteDynamics (self,x0, utraj):
+        # x0: initial state condition
+        # utraj: a sequence of control input 
+        # Compute sequence of states (forward dynamics)
+        N = len(utraj)
+        xtraj = np.zeros([4,N])
+        xtraj[:,0] = x0 # append initial state to the trajectory
+
+        for i in range(N+1): # compute from x1 to xN
+            xtraj[:,i+1] = self.DiscreteEulerDynamics(xtraj[:,i], utraj[i])
+
+        return xtraj
+    
+    def GenWarmSwingUp (self, x0, T, N):
+        # Generate a warm up initial guess
+        # return a guess trajectory utraj, xtraj
+        # x0: initial condition
+        # N: number of collocation trajectory point
+        # T: trajectory duration
+
+        m = self.m
+        l = self.l
+        t = np.linspace(0, T, N)
+        M = self.M
+
+        # assume the cart follows a sinusoidal trajectory, conserving CoM
+        # CoM computation
+        CoM = m * l / ( m + M)
+        x = CoM * np.sin(np.pi * t / T) # at t=0, x=0; at t=T/2, x=CoM, at t=T, x=0
+        dx = CoM * (2*np.pi / T) * np.cos(2 * np.pi * t / T) # derivative of x
+        ddx = -CoM * (2*np.pi / T)**2 * np.sin(2 * np.pi * t / T) # second derivative of x
+
+        # assume the pole/pendulumn goes from bottom 0 to top pi in one simple motion
+        theta = np.pi*(t/T)
+        dtheta = np.pi*np.ones_like(t)/T
+        ddtheta = np.zeros_like(t)
+
+        # now compute the inverse dynamics got get u_guess
+        x_guess = np.vstack((x, theta, dx, dtheta)).T
+        xd_guess = np.vstack((dx, dtheta, ddx, ddtheta)).T
+
+        # append final state to ensure it ends at the desired upright position
+        x_guess = np.vstack((x_guess, np.array([0.0, np.pi, 0.0, 0.0])))
+        xd_guess = np.vstack((xd_guess, np.array([0.0, 0.0, 0.0, 0.0])))
+        
+
+        u_guess = np.zeros_like(t)
+
+        for i in range(N):
+            u_guess[i] = self.ComputeInverseDynamics(x_guess[i], xd_guess[i])
+        
+        t = np.append(t, T)
+
+        return x_guess, xd_guess, u_guess, t # position, velcity, control, time  
     
     def dFdx(self, x, u):
         return np.array(self._f_dFdx(x, u))
@@ -87,9 +142,6 @@ class cartPole:
 
         return dF_dx
 
-
-
-
     def dFdu(self, x, u):
         return np.array(self._f_dFdu(x, u))
     
@@ -97,6 +149,7 @@ class cartPole:
     
     def ComputeInverseDynamics(self, state, dstate):
         # Compute control input u given state and desired acceleration
+        # Can use it for a warm start
         M = self.M
         m = self.m
         l = self.l

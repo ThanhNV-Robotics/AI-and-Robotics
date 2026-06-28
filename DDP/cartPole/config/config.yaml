@@ -6,9 +6,9 @@ dynamic_parameters:
   h: 0.05 # sec, sampling time for the discrited euler dynamics
 
 DDP:
-  T: 3.0 # total time horizon for the trajectory
-  Qk: 1.0 # lagrange cost weight for state x
-  QN: 2.0 # terminal cost weight for state x
-  R: 0.1 # cost weight for control force
+  T: 5.0 # total time horizon for the trajectory
+  Qk: 10.0 # lagrange cost weight for state x
+  QN: 1000.0 # terminal cost weight for state x
+  R: 0.01 # cost weight for control force
   max_iter: 100 # maximum iteration
-  with_hessian: 0 # use Hessian or not
+  with_hessian: 1 # use Hessian or not

@@ -1,56 +1,80 @@
-from cartPoledynamics import*
+from cartPoledynamics import *
 import yaml
 from DDP import DDP
+
 if __name__ == "__main__":
-    
-    # Load parameter from yaml file
+
+    # Load parameters
     with open('DDP/cartPole/config/config.yaml', 'r') as f:
         config = yaml.safe_load(f)
-        
-    
-    T = config['DDP']['T']
-    h = config['dynamic_parameters']['h']
 
-    Nt = np.uint16(T/h) + 1
+    T  = config['DDP']['T']
+    h  = config['dynamic_parameters']['h']
+    Nt = int(T / h)
 
-    print("DDP configuration: ")
-    print("Number of discreted point: ", Nt)
-    print("Time horizon: ", T)
-    print ("Time step: ", h)
-    
-    # create an instant of cartpole object
-    cartPole = cartPole(config['dynamic_parameters'])
-    
-    # Initial condition / starting state
-    # x, theta, xd, thetad
-    x0 = np.array([0,0,0,0]) 
-    dim_x = x0.shape[0]
-    # target state
-    xgoal = np.array([0,np.pi,0,0])
+    print(f"T={T}s  h={h}s  Nt={Nt}")
 
-    # Cost weights
-    Qk = config['DDP']['Qk'] * np.eye(dim_x)   # stage state cost
-    QN = config['DDP']['QN'] * np.eye(dim_x)   # terminal state cost
-    R  = config['DDP']['R']  * np.eye(1)        # control cost
+    # Cart-pole model
+    model = cartPole(config['dynamic_parameters'])
 
-    # Create a DDP object
-    ddp_obj = DDP(
-        config        = config['DDP'],
-        Nx            = dim_x,
-        Nu            = 1,
-        dynamics      = cartPole.DiscreteEulerDynamics
+    # Initial and target states: [x, theta, dx, dtheta]
+    x0      = np.array([0.0, 0.0, 0.0, 0.0])
+    xtarget = np.array([0.0, np.pi, 0.0, 0.0])
+    dim_x   = x0.shape[0]
+
+    # DDP solver
+    ddp_solver = DDP(
+        config   = config['DDP'],
+        Nx       = dim_x,
+        Nu       = 1,
+        Nt       = Nt,
+        xgoal    = xtarget,
+        dynamics = model.DiscreteEulerDynamics,
     )
-    print("Init DDP object done")
+    print("DDP solver ready.")
 
-    # trajectory variable
-    xtraj = np.zeros([dim_x, Nt]) # state trajectory vector, shape (4,Nt)
-    utraj = np.zeros([1, Nt]) # shape (1, Nt)
-    print("init ok")
+    # Warm-start initial guess from inverse dynamics
+    X_guess, _, U_guess, _ = model.GenWarmSwingUp(np.zeros([dim_x, Nt]), T, Nt)
     
-    # Initial Rollout
-    
-    for i in range(Nt-1):
-        xtraj[:,i+1] = np.array(cartPole.DiscreteEulerDynamics(xtraj[:,i],utraj[:,i])).flatten()
-        
-    print("Init initial Rollout")
-    
+    # GenWarmSwingUp returns X_guess (Nt+1, 4) and U_guess (Nt,)
+    # DDP convention: X is (Nx, Nt), U is (Nu, Nt)
+    X_init = 0*X_guess[:Nt, :].T            # (4, Nt)
+    U_init = 0*U_guess[:Nt].reshape(1, -1)  # (1, Nt)
+
+    # Run DDP optimisation
+    X_opt, U_opt, J_final = ddp_solver.optimize(x0, X_init, U_init)
+
+    # Plot results
+    t = np.linspace(0, T, Nt)
+
+    # model.simulate_state_trajectory(t, X_guess, isRender=True)
+
+    labels      = ['x (m)', 'θ (rad)', 'ẋ (m/s)', 'θ̇ (rad/s)']
+    target_vals = xtarget
+
+    fig, axes = plt.subplots(3, 2, figsize=(12, 9))
+    fig.suptitle(f"DDP Swing-up  (final J={J_final:.3f})")
+
+    for i, (ax, label) in enumerate(zip(axes.flat[:4], labels)):
+        ax.plot(t, X_opt[i, :],  label='DDP opt')
+        ax.plot(t, X_init[i, :], '--', alpha=0.5, label='Init guess')
+        ax.axhline(target_vals[i], color='r', linestyle=':', linewidth=1, label='Target')
+        ax.set_xlabel('Time (s)')
+        ax.set_ylabel(label)
+        ax.legend(fontsize=7)
+        ax.grid(True)
+
+    axes[2, 0].plot(t, U_opt[0, :],  label='DDP opt')
+    axes[2, 0].plot(t, U_init[0, :], '--', alpha=0.5, label='Init guess')
+    axes[2, 0].set_xlabel('Time (s)')
+    axes[2, 0].set_ylabel('u (N)')
+    axes[2, 0].set_title('Control input')
+    axes[2, 0].legend(fontsize=7)
+    axes[2, 0].grid(True)
+
+    axes[2, 1].axis('off')
+    plt.tight_layout()
+    plt.show()
+
+    # Animate the optimised trajectory
+    model.simulate_state_trajectory(t, X_opt.T, isRender=True)
