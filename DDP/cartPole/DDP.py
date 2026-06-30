@@ -5,7 +5,8 @@ from time import time
 
 class DDP:
     def __init__(self, config, Nx, Nu, Nt, xgoal, dynamics: Callable):
-
+        # this class solve for quadratics stage and terminal cost
+        
         # config: parse from the yaml file
         # Nx: state dimension
         # Nu: input dimension
@@ -13,14 +14,14 @@ class DDP:
         # xgoal: final state goal
         # dynamics: descreted dynamic function
         # terminal_cost: terminal cost function
-        # stage_cost: stage cost function (lagrage term)
-        # this class solve for quadratics stage and terminal cost
+        # stage_cost: stage cost function (lagrage term)        
 
-        self.T        = config['T']        # terminal time
-        self.Nx       = Nx                 # state dimension
-        self.Nu       = Nu                 # control input dimension
-        self.Nt       = Nt                 # number of collocation trajectory points
-        self.max_iter = config['max_iter'] # max DDP iterations
+        self.T           = config['T']           # terminal time
+        self.Nx          = Nx                    # state dimension
+        self.Nu          = Nu                    # control input dimension
+        self.Nt          = Nt                    # number of collocation trajectory points
+        self.max_iter    = config['max_iter']    # max DDP iterations
+        self.use_hessian = bool(config.get('use_hessian', 0))  # full DDP vs iLQR
 
         Qk = config['Qk']
         QN = config['QN']
@@ -79,14 +80,14 @@ class DDP:
 
         Vx  = np.zeros((Nx, Nt))
         Vxx = np.zeros((Nx, Nx, Nt))
-        d   = np.zeros((Nu, Nt - 1))
-        K   = np.zeros((Nu, Nx, Nt - 1))
+        d   = np.zeros((Nu, Nt - 1)) # to store feedforward term
+        K   = np.zeros((Nu, Nx, Nt - 1)) # to store feedback gain term 
 
         # terminal boundary condition
         Vx[:, -1]    = self.QN @ (xtraj[:, -1] - xgoal)
         Vxx[:, :, -1] = self.QN
 
-        delta_J = 0.0
+        delta_J = 0.0 # change in cost
 
         for k in range(Nt - 2, -1, -1):
             x = xtraj[:, k]
@@ -105,13 +106,27 @@ class DDP:
             Qxu = A.T @ Vxx[:, :, k + 1] @ B
             Qux = B.T @ Vxx[:, :, k + 1] @ A
 
+            # Full DDP: add second-order dynamics corrections (omitted in iLQR)
+            if self.use_hessian:
+                Vx_next = Vx[:, k + 1]
+                # CasADi jacobian of (Nx,Nx) Jx w.r.t. x → (Nx*Nx, Nx), col-major layout
+                # T3xx[j,i,k] = d²Fd^(i) / (dx_j dx_k)
+                T3xx = np.array(self.d2Fd_dxdx(x, u)).reshape(Nx, Nx, Nx)
+                # T3xu[j,i,l] = d²Fd^(i) / (dx_j du_l)
+                T3xu = np.array(self.d2Fd_dxdu(x, u)).reshape(Nx, Nx, Nu)
+                # T3uu[j,i,l] = d²Fd^(i) / (du_j du_l)
+                T3uu = np.array(self.d2Fd_dudu(x, u)).reshape(Nu, Nx, Nu)
+                Qxx += np.einsum('i,jik->jk', Vx_next, T3xx)
+                Qux += np.einsum('i,jil->lj', Vx_next, T3xu)
+                Quu += np.einsum('i,jil->jl', Vx_next, T3uu)
+
             # regularize Quu to keep it positive definite
             Quu_reg = Quu + mu * np.eye(Nu)
 
-            dk = -np.linalg.solve(Quu_reg, Qu)
-            Kk = -np.linalg.solve(Quu_reg, Qux)
+            dk = -np.linalg.solve(Quu_reg, Qu) # compute the feedforward term
+            Kk = -np.linalg.solve(Quu_reg, Qux) # compute the feedback gain
 
-            d[:, k]    = dk
+            d[:, k]    = dk # append to the list
             K[:, :, k] = Kk
 
             Vx[:, k]    = Qx + Kk.T @ Qu  + Qxu @ dk + Kk.T @ Quu @ dk
@@ -122,14 +137,23 @@ class DDP:
         return Vx, Vxx, d, K, delta_J
     
     def forward_pass(self, X, U, d, K, alpha=1.0):
-        Nt = self.Nt
+        # X: state trajectory in the previous iteration
+        # U: control trajectory in the previous iteration
+        # d: sequence of feedforward term calculated from backward pass
+        # K: sequence of feedback gain matrix calculated from backward pass
+        
+        Nt = self.Nt # trajectory length
         X_new = np.zeros_like(X)
         U_new = np.zeros_like(U)
         X_new[:, 0] = X[:, 0]  # same initial state
 
-        for k in range(Nt - 1):
+        for k in range(Nt - 1): #loop from k = 0: Nt-1
             delta_x = X_new[:, k] - X[:, k]
+            
+            # update control input with line search
             U_new[:, k] = U[:, k] + alpha * d[:, k] + K[:, :, k] @ delta_x
+            
+            # Update new state trajectory by forward simulating the dynamic
             X_new[:, k+1] = np.array(self.Fd(X_new[:, k], U_new[:, k])).flatten()
 
         return X_new, U_new, self.cost(X_new, U_new)
@@ -140,7 +164,12 @@ class DDP:
         U = U_normal.copy()
         X[:, 0] = x0   # enforce fixed initial state
         last_cost = self.cost(X, U)
-        print(f"DDP start: J={last_cost:.4f}")
+        mode = "full DDP" if self.use_hessian else "iLQR"
+        print(f"DDP start ({mode}): J={last_cost:.4f}")
+
+        cost_history = [last_cost]
+        X_history    = [X.copy()]   # initial trajectory
+        U_history    = [U.copy()]
 
         for i in range(self.max_iter):
             # Backward pass
@@ -165,6 +194,9 @@ class DDP:
 
             X, U = X_new, U_new
             last_cost = J_new
+            cost_history.append(last_cost)
+            X_history.append(X.copy())
+            U_history.append(U.copy())
 
             if abs(improvement) < 1e-4:
                 print("Converged.")
@@ -172,7 +204,7 @@ class DDP:
 
         elapsed = time() - start_time
         print(f"DDP done in {elapsed:.2f}s  final J={last_cost:.4f}")
-        return X, U, last_cost
+        return X, U, last_cost, cost_history, X_history, U_history
 
 
 

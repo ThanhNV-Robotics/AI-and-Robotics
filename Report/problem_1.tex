@@ -47,6 +47,7 @@ Denote $\mathbf{x} = [x, \theta, \dot{x}, \dot{\theta}, F]$ as the augumented st
     \frac{u-F}{\tau_a}
 \end{bmatrix}
 = \boldsymbol{f}(\mathbf{x},u)
+\label{eq: dynamics equation}
 \end{equation}
 
 \begin{itemize}
@@ -147,8 +148,121 @@ where the subscription $k+1$ indicate the value taken at time $k+1$. Otherwise w
 \subsection{}
 Now we minimize $Q(\delta \mathbf{x}_k, \delta u_k)$ in \ref{eq: Q value quadratic} over $\delta u_k$, we have
 \begin{align}
-    \delta u_k &= \arg \min_{\delta u_k}{Q(\delta \mathbf{x}_k, \delta u_k)} = \arg \min_{\delta u_k} \frac{1}{2}\delta u_k^T Q_{uu,k}\delta u_k  + Q_{u,k}^T \delta u_k + \delta u_k^T Q_{ux,k}\delta \mathbf{x}_k\\
-    &= -Q_{uu}^{-1}
+    \delta u_k &= \arg \min_{\delta u_k}{Q(\delta \mathbf{x}_k, \delta u_k)} = \arg \min_{\delta u_k} \left[\frac{1}{2}\delta u_k^T Q_{uu,k}\delta u_k  + Q_{u,k}^T \delta u_k + \delta u_k^T Q_{ux,k}\delta \mathbf{x}_k \right]\\
+    &= -Q_{uu}^{-1}Q_{ux}\delta \mathbf{x} -Q_{uu}^{-1}Q_{u}^T
+\end{align}
+Defining the feedforward and feedback gains:
+\begin{align}
+    \mathbf{k}_k &= -Q_{uu,k}^{-1}Q_{u,k}, \\
+    \mathbf{K}_k &= -Q_{uu,k}^{-1}Q_{ux,k},
+\end{align}
+the optimal perturbation is $\delta u_k^* = \mathbf{k}_k + \mathbf{K}_k\delta\mathbf{x}_k$.
+
+Substituting $\delta u_k^* = \mathbf{k}_k + \mathbf{K}_k\delta\mathbf{x}_k$ back into the quadratic Q-function and collecting terms by order in $\delta\mathbf{x}_k$, using the identities $Q_{uu,k}\mathbf{k}_k = -Q_{u,k}$ and $Q_{uu,k}\mathbf{K}_k = -Q_{ux,k}$, gives the value-function update:
+\begin{align}
+    V_{x,k} &= Q_{x,k} - \mathbf{K}_k^\top Q_{uu,k}\mathbf{k}_k, \\
+    V_{xx,k} &= Q_{xx,k} - \mathbf{K}_k^\top Q_{uu,k}\mathbf{K}_k.
 \end{align}
 
+\textbf{Terminal conditions.} Since $V_N(\mathbf{x}_N) = l_N(\mathbf{x}_N) = \frac{1}{2}(\mathbf{x}_N - \mathbf{x}_{ref})^\top\mathbf{Q}_N(\mathbf{x}_N - \mathbf{x}_{ref})$, evaluating at the nominal terminal state $\bar{\mathbf{x}}_N$ gives:
+\begin{equation}
+    V_{x,N} = \mathbf{Q}_N(\bar{\mathbf{x}}_N - \mathbf{x}_{ref}), \qquad V_{xx,N} = \mathbf{Q}_N.
+\end{equation}
+
+\textbf{Backward pass algorithm.}
+\begin{enumerate}
+    \item \textbf{Initialize:} $V_{x,N} = \mathbf{Q}_N(\bar{\mathbf{x}}_N - \mathbf{x}_{ref})$,\quad $V_{xx,N} = \mathbf{Q}_N$.
+    \item \textbf{For} $k = N-1,\, N-2,\, \ldots,\, 0$:
+    \begin{enumerate}
+        \item Compute Jacobians: $A_k = \partial F_d/\partial\mathbf{x}\big|_{\bar{\mathbf{x}}_k,\bar{u}_k}$,\quad $B_k = \partial F_d/\partial u\big|_{\bar{\mathbf{x}}_k,\bar{u}_k}$.
+        \item Evaluate Q-function derivatives:
+        \begin{align*}
+            Q_{x,k} &= l_{x,k} + A_k^\top V_{x,k+1}, &
+            Q_{u,k} &= l_{u,k} + B_k^\top V_{x,k+1},\\
+            Q_{xx,k} &= l_{xx,k} + A_k^\top V_{xx,k+1}A_k, &
+            Q_{uu,k} &= l_{uu,k} + B_k^\top V_{xx,k+1}B_k,\\
+            Q_{ux,k} &= l_{ux,k} + B_k^\top V_{xx,k+1}A_k.
+        \end{align*}
+        (For full DDP, add $\sum_i V_{x,k+1}^{(i)}F_{dxx,k}^{(i)}$ to $Q_{xx,k}$, and analogous second-derivative contractions to $Q_{uu,k}$ and $Q_{ux,k}$.)
+        \item Compute gains: $\mathbf{k}_k = -Q_{uu,k}^{-1}Q_{u,k}$,\quad $\mathbf{K}_k = -Q_{uu,k}^{-1}Q_{ux,k}$.
+        \item Update: $V_{x,k} = Q_{x,k} - \mathbf{K}_k^\top Q_{uu,k}\mathbf{k}_k$,\quad $V_{xx,k} = Q_{xx,k} - \mathbf{K}_k^\top Q_{uu,k}\mathbf{K}_k$.
+    \end{enumerate}
+    \item \textbf{Output:} Gain sequences $\{\mathbf{k}_k,\, \mathbf{K}_k\}_{k=0}^{N-1}$.
+\end{enumerate}
+
+\subsection{}
+\textbf{iLQR vs.\ DDP.} iLQR discards the dynamics second-derivative tensors from the Q-function, retaining only first-order (Jacobian) contributions:
+\begin{align*}
+    Q_{xx,k}^{\mathrm{iLQR}} &= l_{xx} + A_k^\top V_{xx,k+1}A_k, \\
+    Q_{uu,k}^{\mathrm{iLQR}} &= l_{uu} + B_k^\top V_{xx,k+1}B_k, \\
+    Q_{ux,k}^{\mathrm{iLQR}} &= l_{ux} + B_k^\top V_{xx,k+1}A_k.
+\end{align*}
+Full DDP additionally includes the contraction $\sum_i V_{x,k+1}^{(i)}F_{dxx,k}^{(i)}$ in $Q_{xx}$, and analogous corrections in $Q_{uu}$ and $Q_{ux}$, accounting for the curvature of the dynamics that iLQR ignores.
+
+For the augmented cart-pole, the only nonzero dynamics second derivative with respect to the state is the curvature of the $\ddot{\theta}$ component in the $\theta$ direction:
+\begin{equation}
+    \frac{\partial^2 f^{(\dot\theta)}}{\partial\theta^2} \propto \sin\theta,
+\end{equation}
+arising from the terms $\cos\theta\sin\theta$ and $(m_c+m_p)g\sin\theta$ in the $\ddot\theta$ numerator. All other second partial derivatives of $\mathbf{f}$ with respect to state are zero.
+
+The DDP-only correction to $Q_{xx,k}$---a rank-1 update in the $(\theta,\theta)$ slot---is:
+\begin{equation}
+    \Delta Q_{xx,k}^{\mathrm{DDP}} = \sum_i V_{x,k+1}^{(i)} F_{dxx,k}^{(i)} = h\,V_{x,k+1}^{(\dot\theta)}\,\frac{\partial^2 f^{(\dot\theta)}}{\partial\theta^2}\,\mathbf{e}_\theta\mathbf{e}_\theta^\top,
+\end{equation}
+where $\mathbf{e}_\theta$ is the unit vector for the $\theta$ component of the augmented state.
+
+This correction scales as $\sin\theta$ and vanishes at both equilibria ($\theta=0$ and $\theta=\pi$, since $\sin\pi = 0$). It is largest at $\theta \approx \pi/2$ during swing-up. Retaining the DDP term is worthwhile when the trajectory sweeps through large pole angles, where the improved quadratic model accelerates convergence. Near the upright equilibrium the correction is negligible and iLQR provides essentially the same result at lower cost.
+
+\subsection{}
+\textbf{Forward pass and robustness.} Given gains $\{\mathbf{k}_k, \mathbf{K}_k\}$ from the backward pass, the forward rollout with line-search step $\alpha \in (0,1]$ is:
+\begin{align}
+    \mathbf{x}_0 &= \bar{\mathbf{x}}_0, \\
+    \delta u_k &= \alpha\,\mathbf{k}_k + \mathbf{K}_k(\mathbf{x}_k - \bar{\mathbf{x}}_k), \\
+    u_k &= \bar{u}_k + \delta u_k, \\
+    \mathbf{x}_{k+1} &= F_d(\mathbf{x}_k,\, u_k), \quad k = 0,\ldots,N-1.
+\end{align}
+The feedback term $\mathbf{K}_k(\mathbf{x}_k - \bar{\mathbf{x}}_k)$ corrects for deviations that accumulate when rolling out the nonlinear dynamics. The predicted cost decrease from the feedforward component is:
+\begin{equation}
+    \Delta J(\alpha) = \alpha\sum_{k=0}^{N-1}Q_{u,k}^\top\mathbf{k}_k + \frac{\alpha^2}{2}\sum_{k=0}^{N-1}\mathbf{k}_k^\top Q_{uu,k}\mathbf{k}_k.
+\end{equation}
+The step is accepted if $J_{\mathrm{new}} \leq J_{\mathrm{old}} + c_1\Delta J(\alpha)$ for some $c_1 \in (0,1)$ (Armijo condition). If rejected, $\alpha$ is reduced (e.g.\ $\alpha \leftarrow 0.5\,\alpha$) and the forward pass is repeated until acceptance or a minimum step size.
+
+\textbf{Levenberg--Marquardt regularization.} When $Q_{uu,k} \not\succ 0$---which can occur far from the solution or when DDP second-derivative terms are negative---the backward pass does not yield a descent direction. The regularization
+\begin{equation}
+    Q_{uu,k} \leftarrow Q_{uu,k} + \mu\,\mathbf{I}, \quad \mu > 0,
+\end{equation}
+with $\mu$ large enough to restore positive definiteness ensures that $\mathbf{k}_k = -(Q_{uu,k}+\mu\mathbf{I})^{-1}Q_{u,k}$ is a descent direction and limits the step magnitude, improving global robustness. In practice $\mu$ is adapted: increased when the actual-to-predicted cost ratio is low, decreased when steps are consistently accepted.
+
+\subsection{}
+\textbf{LQR special case.} For linear dynamics $F_d(\mathbf{x},u) = A\mathbf{x} + Bu$ (constant Jacobians, all second-derivative tensors zero) and quadratic cost $l(\mathbf{x},u) = \frac{1}{2}\mathbf{x}^\top \mathbf{Q}\mathbf{x} + \frac{1}{2}Ru^2$ with $\mathbf{x}_{ref} = \mathbf{0}$, we have $l_{xx} = \mathbf{Q}$, $l_{uu} = R$, $l_{ux} = \mathbf{0}$. Setting $P_k := V_{xx,k}$, the Q-function blocks become:
+\begin{equation}
+    Q_{xx} = \mathbf{Q} + A^\top P_{k+1}A, \quad Q_{uu} = R + B^\top P_{k+1}B, \quad Q_{ux} = B^\top P_{k+1}A.
+\end{equation}
+Substituting into the DDP value-function recursion gives:
+\begin{equation}
+    P_k = \mathbf{Q} + A^\top P_{k+1}A - A^\top P_{k+1}B\bigl(R + B^\top P_{k+1}B\bigr)^{-1}B^\top P_{k+1}A,
+\end{equation}
+with $P_N = \mathbf{Q}_N$. This is exactly the discrete-time finite-horizon LQR Riccati recursion.
+
+\textbf{Scalar backward step.} Let $n = m = 1$ with $x_{k+1} = ax_k + bu_k$, $l = \frac{1}{2}qx^2 + \frac{1}{2}ru^2$, terminal cost $\frac{1}{2}p_N x_N^2$. One step backward from $k = N-1$:
+\begin{align*}
+    Q_{xx} &= q + a^2 p_N, \quad Q_{uu} = r + b^2 p_N, \quad Q_{ux} = ab\,p_N, \\
+    K &= -\frac{ab\,p_N}{r + b^2 p_N}, \\
+    p_{N-1} &= Q_{xx} - K^2 Q_{uu} = q + a^2 p_N - \frac{a^2 b^2 p_N^2}{r + b^2 p_N} = q + \frac{a^2 r\, p_N}{r + b^2 p_N},
+\end{align*}
+which is the standard scalar Riccati step.
+
+\subsection{}
+\textbf{Effect of actuator dynamics.} The first-order lag $\dot F = (u - F)/\tau_a$ appends $F$ as a state. Under Forward Euler the only nonzero control-coupling column is $B_k = (h/\tau_a)\,\mathbf{e}_F$, so the input contribution to $Q_{uu}$ is:
+\begin{equation}
+    Q_{uu} = R + \frac{h^2}{\tau_a^2}\,[V_{xx,k+1}]_{FF}.
+\end{equation}
+
+\textbf{Conditioning of $Q_{uu}$.} For small $\tau_a$ the factor $h^2/\tau_a^2 \gg 1$ amplifies the value-function curvature in the force direction, making $Q_{uu}$ large and potentially ill-conditioned relative to $R$; Levenberg--Marquardt regularization becomes essential. For large $\tau_a$, $h/\tau_a \to 0$ and $Q_{uu} \to R$, which is well-conditioned.
+
+\textbf{Achievable control bandwidth.} The actuator introduces a first-order pole with time constant $\tau_a$. The actual force $F(t)$ cannot track commands at frequencies above $\approx 1/\tau_a$\,rad/s, bounding the achievable closed-loop bandwidth of the system.
+
+\textbf{Largest stable step $h$.} Forward Euler applied to the actuator equation gives the discrete eigenvalue $\lambda = 1 - h/\tau_a$. Stability requires $|\lambda| < 1$, i.e., $h < 2\tau_a$. A smaller time constant therefore forces a finer integration step.
+
+\textbf{Actuator-free limit ($\tau_a \to 0$).} As $\tau_a \to 0$, $F \to u$ instantaneously and the augmented 5-state model collapses to the standard 4-state cart-pole $[x,\theta,\dot{x},\dot{\theta}]^\top$ with direct force input. While this simplifies the model, ignoring the physical lag means the controller commands inputs that the real actuator cannot track, degrading closed-loop performance when $\tau_a$ is non-negligible.
 

@@ -1,0 +1,14 @@
+dynamic_parameters:
+  g: 9.81
+  M: 1.0 # mass of the cart
+  m: 0.3 # mass of the pole
+  l: 0.5 # length of the pole
+  Ts: 0.05 # sec, sampling time for the discrited euler dynamics
+
+MPC: 
+  P: 1000 # terminal state weight
+  Q: 10   # stage state weight (stage cost)
+  r: 0.01 # control input weight
+  umax: 100 # N, control force boundary
+  xmax: 2 # m cart moving boudary
+  Tp: 1.2 # predict horizon

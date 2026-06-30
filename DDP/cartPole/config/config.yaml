@@ -11,4 +11,4 @@ DDP:
   QN: 1000.0 # terminal cost weight for state x
   R: 0.01 # cost weight for control force
   max_iter: 100 # maximum iteration
-  with_hessian: 1 # use Hessian or not
+  use_hessian: 0 # use full DDP or iLQR

@@ -42,7 +42,7 @@ if __name__ == "__main__":
     U_init = 0*U_guess[:Nt].reshape(1, -1)  # (1, Nt)
 
     # Run DDP optimisation
-    X_opt, U_opt, J_final = ddp_solver.optimize(x0, X_init, U_init)
+    X_opt, U_opt, J_final, cost_history, X_history, U_history = ddp_solver.optimize(x0, X_init, U_init)
 
     # Plot results
     t = np.linspace(0, T, Nt)
@@ -72,7 +72,51 @@ if __name__ == "__main__":
     axes[2, 0].legend(fontsize=7)
     axes[2, 0].grid(True)
 
-    axes[2, 1].axis('off')
+    axes[2, 1].plot(cost_history, marker='o', markersize=3)
+    axes[2, 1].set_xlabel('Iteration')
+    axes[2, 1].set_ylabel('Cost J')
+    axes[2, 1].set_title('Cost vs. Iteration')
+    axes[2, 1].set_yscale('log')
+    axes[2, 1].grid(True)
+    plt.tight_layout()
+    plt.show()
+
+    # --- Trajectory evolution across iterations ---
+    n_iters = len(X_history)
+    cmap    = plt.cm.plasma
+    colors  = [cmap(v) for v in np.linspace(0.1, 0.95, n_iters)]
+
+    fig2, axes2 = plt.subplots(3, 2, figsize=(12, 9))
+    fig2.suptitle("Trajectory evolution across DDP iterations")
+
+    for idx, (Xh, Uh) in enumerate(zip(X_history, U_history)):
+        c     = colors[idx]
+        alpha = 0.3 + 0.7 * (idx / max(n_iters - 1, 1))   # early=faint, final=opaque
+        lw    = 0.8 + 1.2 * (idx / max(n_iters - 1, 1))
+        label = f"iter {idx}" if idx in (0, n_iters - 1) else None
+        for i, ax in enumerate(axes2.flat[:4]):
+            ax.plot(t, Xh[i, :], color=c, alpha=alpha, linewidth=lw, label=label)
+        axes2[2, 0].plot(t, Uh[0, :], color=c, alpha=alpha, linewidth=lw, label=label)
+
+    for i, (ax, label) in enumerate(zip(axes2.flat[:4], labels)):
+        ax.axhline(target_vals[i], color='r', linestyle=':', linewidth=1, label='Target')
+        ax.set_xlabel('Time (s)')
+        ax.set_ylabel(label)
+        ax.legend(fontsize=7)
+        ax.grid(True)
+
+    axes2[2, 0].set_xlabel('Time (s)')
+    axes2[2, 0].set_ylabel('u (N)')
+    axes2[2, 0].set_title('Control input')
+    axes2[2, 0].legend(fontsize=7)
+    axes2[2, 0].grid(True)
+
+    # Colorbar to indicate iteration progress
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0, n_iters - 1))
+    sm.set_array([])
+    fig2.colorbar(sm, ax=axes2[2, 1], label='Iteration')
+    axes2[2, 1].axis('off')
+
     plt.tight_layout()
     plt.show()
 

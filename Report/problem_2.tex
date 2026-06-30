@@ -1,396 +1,238 @@
-\section{Problem 2: Disk Pendulum}
-\begin{figure} [h]
-\centering
-\includegraphics[width=0.5\textwidth]{figures/Problem_2.png}
-\caption{Disk pendulum system.}
-\end{figure}
-We use the same generalized coordinates and reference frames from HW01:
-\[
-q_1 = \phi(t),
+\section{Problem 2: Constrained Cart-Pole: Model Predictive Control}
+
+\subsection*{Prerequisite: Linearization about the Upright Equilibrium}
+For brevity we drop the tilde and write $\mathbf{x}_k$ for the deviation state hereafter.\\
+
+Let $\tilde{\mathbf{x}} = \mathbf{x} - \mathbf{x}_{up}$ denote the deviation from the upright equilibrium $\mathbf{x}_{up} = [0,\pi,0,0]^\top$. Then from \ref{eq: dynamics equation} we have:
+
+\begin{equation}
+    \dot{\tilde{\mathbf{x}}} = \boldsymbol{f}(\mathbf{x}_{up} + \tilde{\mathbf{x}}, u)
+\end{equation}
+
+Linearize the dynamic equation around $\mathbf{x}_{up}$ we have:
+
+\begin{equation}
+    \dot{\tilde{\mathbf{x}}} \approx \boldsymbol{A}_c\tilde{\mathbf{x}} + \boldsymbol{B}_c u 
+\end{equation}
+where $\boldsymbol{A}_c = \partial\boldsymbol{f}/\partial\tilde{\mathbf{x}}\big|_{\mathbf{x}_{up},0}$ and $\boldsymbol{B}_c = \partial\boldsymbol{f}/\partial u\big|_{\mathbf{x}_{up},0}$.
+
+\textbf{Evaluation at the upright equilibrium.} Let $\phi = \theta - \pi$ be the small angle deviation. Then $\sin\theta = \sin(\pi+\phi) \approx -\phi$ and $\cos\theta = \cos(\pi+\phi) \approx -1$ to first order. The denominator factor $D(\theta) = m_c + m_p\sin^2\theta$ evaluates to $D(\pi) = m_c$. Setting $\phi,\dot\phi,u \to 0$ in the Jacobians of the $\ddot{x}$ and $\ddot\theta$ expressions gives:
+
+\begin{align*}
+\frac{\partial f_{\ddot{x}}}{\partial\theta}\bigg|_{up}
+  &= \frac{m_p g(\cos^2\theta-\sin^2\theta)}{D}\bigg|_{\pi}
+   = \frac{m_p g}{m_c},
 \qquad
-q_2 = \theta(t)
-\]
-where:
+\frac{\partial f_{\ddot{x}}}{\partial u}\bigg|_{up}
+   = \frac{1}{D}\bigg|_{\pi}
+   = \frac{1}{m_c},\\[4pt]
+\frac{\partial f_{\ddot\theta}}{\partial\theta}\bigg|_{up}
+  &= \frac{(m_c+m_p)g(-\cos\theta)}{\ell D}\bigg|_{\pi}
+   = \frac{(m_c+m_p)g}{\ell m_c},
+\qquad
+\frac{\partial f_{\ddot\theta}}{\partial u}\bigg|_{up}
+   = \frac{-\cos\theta}{\ell D}\bigg|_{\pi}
+   = \frac{1}{\ell m_c}.
+\end{align*}
+
+All other first partial derivatives of $\ddot{x}$ and $\ddot\theta$ vanish at the equilibrium (terms involve $\sin\pi=0$, $\dot\theta=0$, or $u=0$). The remaining rows follow directly from $\dot{\tilde{x}}_1 = \tilde{x}_3$ and $\dot{\tilde{x}}_2 = \tilde{x}_4$. This yields:
+
+\begin{equation}
+    \boldsymbol{A}_c = \begin{bmatrix}
+        0 & 0 & 1 & 0 \\
+        0 & 0 & 0 & 1 \\
+        0 & \dfrac{m_p g}{m_c} & 0 & 0 \\[6pt]
+        0 & \dfrac{(m_c+m_p)g}{\ell\, m_c} & 0 & 0
+    \end{bmatrix}, \qquad
+    \boldsymbol{B}_c = \begin{bmatrix}
+        0 \\[2pt] 0 \\[2pt]
+        \dfrac{1}{m_c} \\[6pt]
+        \dfrac{1}{\ell\, m_c}
+    \end{bmatrix}.
+\end{equation}
+
+Note that both $\ddot{x}$ and $\ddot\theta$ are driven by the same two terms: the pole-tilt $\phi$ (through $m_p g$) and the input force $F$, both scaled by the total cart inertia $m_c$.
+
+\textbf{Discretization.} Applying forward Euler with sample time $T_s$ gives the discrete-time matrices:
+\begin{equation}
+    A = I + T_s \boldsymbol{A}_c
+    = \begin{bmatrix}
+        1 & 0 & T_s & 0 \\
+        0 & 1 & 0 & T_s \\
+        0 & \dfrac{m_p g T_s}{m_c} & 1 & 0 \\[6pt]
+        0 & \dfrac{(m_c+m_p)g T_s}{\ell\,m_c} & 0 & 1
+    \end{bmatrix}, \qquad
+    B = T_s \boldsymbol{B}_c
+    = \begin{bmatrix}
+        0 \\[2pt] 0 \\[2pt]
+        \dfrac{T_s}{m_c} \\[6pt]
+        \dfrac{T_s}{\ell\,m_c}
+    \end{bmatrix},
+\end{equation}
+% yielding the linear time-invariant system $\tilde{\mathbf{x}}_{k+1} = A\tilde{\mathbf{x}}_k + Bu_k$ with $A \in \mathbb{R}^{4\times4}$, $B\in\mathbb{R}^{4\times1}$. A higher-accuracy alternative is Zero-Order Hold (ZOH) discretization, $A = e^{\boldsymbol{A}_c T_s}$, $B = \boldsymbol{A}_c^{-1}(A-I)\boldsymbol{B}_c$, which is exact for piecewise-constant inputs.
+
+\subsection{}
+The finite-horizon regulation MPC problem solved at each time step $k$, given the measured state $\hat{\mathbf{x}}_k$, is:
+\begin{equation}
+\begin{aligned}
+    \min_{\{\mathbf{x}_i, u_i\}} \quad & \mathbf{x}_N^\top \mathbf{P}\mathbf{x}_N + \sum_{i=0}^{N-1}\left(\mathbf{x}_i^\top \mathbf{Q}\mathbf{x}_i + ru_i^2\right) \\
+    \text{subject to} \quad
+    & \mathbf{x}_0 = \hat{\mathbf{x}}_k, \\
+    & \mathbf{x}_{i+1} = A\mathbf{x}_i + Bu_i, \quad i = 0,\ldots,N-1, \\
+    & |u_i| \leq u_{\max}, \quad i = 0,\ldots,N-1, \\
+    & \bigl|[1\;0\;0\;0]\mathbf{x}_i\bigr| \leq x_{\max}, \quad i = 0,\ldots,N-1, \\
+    & \mathbf{x}_N \in \mathcal{X}_f,
+\end{aligned}
+\label{eq:mpc_problem}
+\end{equation}
+where $\mathbf{P} \succeq 0$ is the terminal cost matrix, $\mathbf{Q} \succeq 0$ is the state weight, $r > 0$ is the input weight, and $\mathcal{X}_f$ is the terminal constraint set.
+
+\textbf{Receding-horizon algorithm.}
+\begin{enumerate}
+    \item At time step $k$: measure the current state $\hat{\mathbf{x}}_k$.
+    \item Solve problem \eqref{eq:mpc_problem} to obtain the optimal sequence $\{u_0^*, u_1^*, \ldots, u_{N-1}^*\}$.
+    \item Apply only the first input: $u_k = u_0^*$.
+    \item Advance $k \leftarrow k+1$, shift the horizon, and return to step 1.
+\end{enumerate}
+
+\subsection{}
+\textbf{Sparse QP form.} Stack all states and inputs into a single decision vector:
+\begin{equation}
+    z = \bigl[\mathbf{x}_0^\top,\; u_0,\; \mathbf{x}_1^\top,\; u_1,\; \ldots,\; \mathbf{x}_{N-1}^\top,\; u_{N-1},\; \mathbf{x}_N^\top\bigr]^\top \in \mathbb{R}^{(N+1)n + Nm}.
+\end{equation}
+The cost is block-diagonal quadratic in $z$. The dynamics $\mathbf{x}_{i+1} = A\mathbf{x}_i + Bu_i$ are enforced as $Nn$ equality constraints, and the initial condition $\mathbf{x}_0 = \hat{\mathbf{x}}_k$ adds $n$ more. The resulting QP has a block-banded (arrow-head) structure that is highly sparse.
+
+\textbf{Condensed QP form.} Recursively substituting the dynamics eliminates all state variables. Every state can be written as:
+\begin{equation}
+    \mathbf{x}_i = A^i\hat{\mathbf{x}}_k + \sum_{j=0}^{i-1}A^{i-1-j}Bu_j.
+\end{equation}
+Stacking $\hat{\mathbf{X}} = [\mathbf{x}_0^\top, \mathbf{x}_1^\top, \ldots, \mathbf{x}_N^\top]^\top$ and $\mathbf{U} = [u_0, u_1, \ldots, u_{N-1}]^\top$:
+\begin{equation}
+    \hat{\mathbf{X}} = \mathcal{A}\hat{\mathbf{x}}_k + \mathcal{B}\mathbf{U},
+\end{equation}
+where the prediction matrices are
+\begin{equation}
+    \mathcal{A} = \begin{bmatrix} I \\ A \\ A^2 \\ \vdots \\ A^N \end{bmatrix}, \qquad
+    \mathcal{B} = \begin{bmatrix}
+        0 & 0 & \cdots & 0 \\
+        B & 0 & \cdots & 0 \\
+        AB & B & \cdots & 0 \\
+        \vdots & \ddots & \ddots & \vdots \\
+        A^{N-1}B & A^{N-2}B & \cdots & B
+    \end{bmatrix}.
+\end{equation}
+Defining $\bar{\mathbf{Q}} = \mathrm{blkdiag}(\mathbf{Q},\mathbf{Q},\ldots,\mathbf{Q},\mathbf{P}) \in \mathbb{R}^{(N+1)n\times(N+1)n}$, the cost becomes a pure function of $\mathbf{U}$:
+\begin{equation}
+    J = \mathbf{U}^\top \mathbf{H}\mathbf{U} + \mathbf{f}^\top\mathbf{U} + \mathrm{const},
+\end{equation}
+with condensed Hessian and gradient:
+\begin{equation}
+    \mathbf{H} = \mathcal{B}^\top\bar{\mathbf{Q}}\mathcal{B} + rI_N \in \mathbb{R}^{N\times N}, \qquad
+    \mathbf{f} = \mathcal{B}^\top\bar{\mathbf{Q}}\mathcal{A}\hat{\mathbf{x}}_k \in \mathbb{R}^N.
+\end{equation}
+The condensed QP is $\min_{\mathbf{U}}\frac{1}{2}\mathbf{U}^\top\mathbf{H}\mathbf{U} + \mathbf{f}^\top\mathbf{U}$ subject to $|u_i| \leq u_{\max}$ and position constraints expressed through $\mathcal{B}$.
+
+\subsection{}
+For horizon $N$, $n$ states, and $m = 1$ input:
+
+\textbf{Sparse form.}
 \begin{itemize}
-    \item $\phi$ is the rotation angle of the vertical shaft,
-    \item $\theta$ is the pendulum swing angle measured from the downward vertical.
+    \item Decision variables: $(N+1)n + N = 5N + 4$ (for $n=4$).
+    \item Equality constraints: $(N+1)n = 4N+4$ (initial condition + $N$ dynamics blocks).
+    \item Inequality constraints: $2N$ (input bounds) $+ 2N$ (position bounds) $= 4N$.
 \end{itemize}
+The constraint matrix is block-banded with $O(Nn)$ nonzero entries. Factorizing the banded KKT system costs $O(N)$, making this form scale linearly with horizon length.
 
-From HW01, the velocity of the point mass is:
-\[
-\mathbf{v}_{m_b}
-=
-\left(R_d\dot\phi + L\dot\phi\cos\theta\right)\mathbf{b}_2
--
-L\dot\theta\mathbf{b}_3
-\]
-
-Hence:
-\[
-|\mathbf{v}_{m_b}|^2
-=
-\left(R_d\dot\phi + L\dot\phi\cos\theta\right)^2
-+
-L^2\dot\theta^2
-\]
-
-\subsection*{(a) Total Kinetic Energy}
-
-The total kinetic energy consists of:
+\textbf{Condensed form.}
 \begin{itemize}
-    \item rotational kinetic energy of the disk,
-    \item translational kinetic energy of the point mass.
+    \item Decision variables: $N$ (inputs only; all states eliminated).
+    \item Equality constraints: $0$ (all dynamics absorbed into $\mathbf{H}$, $\mathbf{f}$).
+    \item Inequality constraints: $2N$ (input) $+ 2N$ (position via $\mathcal{B}$) $= 4N$.
 \end{itemize}
+The Hessian $\mathbf{H} \in \mathbb{R}^{N\times N}$ is dense (full because $\mathcal{B}^\top\bar{Q}\mathcal{B}$ couples all time steps). Factorizing it costs $O(N^3)$.
 
-The disk kinetic energy is:
-\[
-T_d = \frac12 I_d \dot\phi^2
-\]
+As $N$ grows the sparse form is superior: its banded KKT structure allows $O(N)$ solves, whereas the dense condensed Hessian incurs $O(N^3)$ cost. For small $N$ (e.g., $N \leq 20$) the condensed form is often faster in practice due to lower overhead, but it becomes prohibitive for long horizons.
 
-The point-mass kinetic energy is:
+\subsection{}
+Although no closed-form expression $u = \kappa(\mathbf{x})$ is written, re-solving problem \eqref{eq:mpc_problem} at each measured state $\hat{\mathbf{x}}_k$ defines an implicit state-feedback law $u_k = u_0^*(\hat{\mathbf{x}}_k)$: the optimizer maps the current measurement to the optimal first input. The resulting closed-loop map is a piecewise-affine function of $\hat{\mathbf{x}}_k$ (from the parametric QP), even though it is never computed explicitly.
+
+\textbf{Relationship to LQR.} As $N \to \infty$ with $\mathbf{P}$ set to the discrete-algebraic Riccati solution $P_\infty$ (DARE solution for $(\mathbf{Q}, r, A, B)$), the MPC optimal value function converges to the infinite-horizon LQR value $V^{LQR}(\mathbf{x}) = \mathbf{x}^\top P_\infty\mathbf{x}$, and the first optimal input converges to the LQR gain:
+\begin{equation}
+    u_0^* \;\xrightarrow{N\to\infty}\; -K_{LQR}\hat{\mathbf{x}}_k, \qquad K_{LQR} = (r + B^\top P_\infty B)^{-1}B^\top P_\infty A.
+\end{equation}
+For finite $N$, using $\mathbf{P} = P_\infty$ effectively extends the horizon to infinity, recovering the unconstrained LQR performance while the finite-horizon QP handles the active constraints.
+
+\subsection{}
+\textbf{Terminal conditions.} For stability guarantees, the terminal cost $\mathbf{P}$ and terminal set $\mathcal{X}_f$ must satisfy:
+\begin{enumerate}
+    \item There exists a local terminal controller $u = -K\mathbf{x}$ such that $A_{cl} = A - BK$ is stable.
+    \item $\mathbf{P}$ satisfies the Lyapunov equation: $A_{cl}^\top\mathbf{P}A_{cl} - \mathbf{P} = -(\mathbf{Q} + K^\top rK)$.
+    \item $\mathcal{X}_f \subseteq \mathcal{X}$ is positively invariant under $A_{cl}$: if $\mathbf{x} \in \mathcal{X}_f$ then $A_{cl}\mathbf{x} \in \mathcal{X}_f$, and $-K\mathbf{x}$ satisfies the input constraint.
+\end{enumerate}
+
+\textbf{Recursive feasibility (shift argument).} Suppose at time $k$ the optimal solution $\{u_0^*, u_1^*, \ldots, u_{N-1}^*\}$ is feasible, with $\mathbf{x}_N^* \in \mathcal{X}_f$. At time $k+1$, the candidate sequence
+\begin{equation}
+    \{\tilde{u}_0, \tilde{u}_1, \ldots, \tilde{u}_{N-1}\} = \{u_1^*, u_2^*, \ldots, u_{N-1}^*, -K\mathbf{x}_N^*\}
+\end{equation}
+is feasible for the shifted problem: the first $N-1$ inputs are feasible by assumption; the appended terminal input $-K\mathbf{x}_N^*$ satisfies the input bound by condition 3; and the new terminal state $A_{cl}\mathbf{x}_N^* \in \mathcal{X}_f$ by the invariance condition. Hence the optimal $V^*(\mathbf{x}_{k+1}) \leq J(\text{candidate}) < \infty$, ensuring recursive feasibility.
+
+\textbf{Lyapunov decrease.} Using the candidate sequence as an upper bound on $V^*(\mathbf{x}_{k+1})$:
 \begin{align}
-T_b
-&= \frac12 m_b |\mathbf{v}_{m_b}|^2
-\\
-&=
-\frac12 m_b
-\left[
-\left(R_d\dot\phi + L\dot\phi\cos\theta\right)^2
-+
-L^2\dot\theta^2
-\right]
+    V^*(\mathbf{x}_{k+1}) &\leq J(\mathbf{x}_{k+1};\,\text{shifted}) \notag \\
+    &= V^*(\mathbf{x}_k) - \ell(\mathbf{x}_k, u_0^*) + \underbrace{\ell(\mathbf{x}_N^*,-K\mathbf{x}_N^*) + V_f(A_{cl}\mathbf{x}_N^*) - V_f(\mathbf{x}_N^*)}_{\leq\, 0\text{ by Lyapunov condition}},
 \end{align}
+where $V_f(\mathbf{x}) = \mathbf{x}^\top\mathbf{P}\mathbf{x}$ and the last bracket is $\leq 0$ by condition 2. Therefore:
+\begin{equation}
+    V^*(\mathbf{x}_{k+1}) - V^*(\mathbf{x}_k) \leq -\ell(\mathbf{x}_k, u_0^*) \leq 0,
+\end{equation}
+establishing $V^*$ as a Lyapunov function and the closed-loop system as asymptotically stable.
 
-Therefore the total kinetic energy is:
-\begin{align}
-T
-&= T_d + T_b
-\\
-&=
-\frac12 I_d\dot\phi^2
-+
-\frac12 m_b
-\left(R_d + L\cos\theta\right)^2 \dot\phi^2
-+
-\frac12 m_bL^2\dot\theta^2
-\end{align}
+\textbf{Terminal equality constraint.} The simplest special case takes $\mathcal{X}_f = \{\mathbf{0}\}$ and $\mathbf{P} = 0$: the terminal constraint $\mathbf{x}_N = \mathbf{0}$ forces the trajectory to reach the origin within $N$ steps, guaranteeing feasibility and stability (provided the system is controllable and $N$ is large enough). The Lyapunov argument still holds since $V_f = 0$ drops all terminal cost terms.
 
-\subsection*{(b) Potential Energy}
+\subsection{}
+\textbf{NMPC formulation for swing-up.} Let $\omega_i = \dot\theta_i$ and define the wrap-safe stage cost that is zero at the upright equilibrium ($\theta = \pi$, where $1 + \cos\pi = 0$) and equals 2 at the downward rest ($\theta = 0$):
+\begin{equation}
+\begin{aligned}
+    \min_{\{\mathbf{x}_i, u_i\}} \quad & \sum_{i=0}^{N-1}\bigl[q_\theta(1+\cos\theta_i) + q_\omega\omega_i^2 + ru_i^2\bigr] + V_f(\mathbf{x}_N) \\
+    \text{s.t.} \quad & \mathbf{x}_0 = \hat{\mathbf{x}}_k,\quad \mathbf{x}_{i+1} = F_d(\mathbf{x}_i, u_i),\quad |u_i| \leq u_{\max},\quad |x_i| \leq x_{\max}.
+\end{aligned}
+\end{equation}
 
-Choose the zero potential energy datum at the pivot point $P$.
+\textbf{Direct multiple shooting} introduces all states $\mathbf{x}_i$ and inputs $u_i$ as decision variables ($N(n+m)+n$ total), and enforces the dynamics as defect equality constraints $\mathbf{x}_{i+1} - F_d(\mathbf{x}_i, u_i) = 0$. \textit{Pro:} each shooting segment is integrated independently, enabling parallelism and easy warm-starting. \textit{Con:} introduces $Nn$ additional variables and equality constraints that increase NLP size.
 
-The vertical position of the point mass is:
-\[
-z = -L\cos\theta
-\]
+\textbf{Direct collocation} places additional collocation points (e.g., Radau or Hermite-Simpson nodes) within each interval and enforces dynamics via polynomial interpolation constraints rather than explicit integration. \textit{Pro:} can handle stiff dynamics and achieve high-order accuracy without small step sizes. \textit{Con:} substantially more decision variables and constraint evaluations per interval; implementation is more complex.
 
-Hence the potential energy is:
-\[
-V = m_bgL\sin\theta
-\]
+\textbf{Warm-starting by trajectory shifting.} At time $k+1$, initialize the NLP solver with the shifted previous solution: $\{\mathbf{x}_1^*, \ldots, \mathbf{x}_N^*, F_d(\mathbf{x}_N^*, 0)\}$ and $\{u_1^*, \ldots, u_{N-1}^*, 0\}$. This near-feasible guess typically reduces NLP iterations significantly compared to cold-starting.
 
-\subsection*{(c) Lagrange Equations}
+\textbf{Real-time iteration (RTI).} Instead of solving the NLP to convergence, perform a single SQP/Newton step per sample: linearize the dynamics around the current guess, solve the resulting QP, and apply the first input immediately. The next step corrects the approximation error. This guarantees meeting the $T_s$ deadline at the cost of slight suboptimality.
 
-The Lagrangian is:
-\[
-\mathcal{L} = T - V
-\]
+\textbf{Connection to iLQR.} The single Newton step in RTI amounts to solving a linear-quadratic subproblem. For the unconstrained (or input-bound-only) case, this linearization followed by a backward-forward DDP pass is precisely iLQR (Problem 1). With input saturation, a box-constrained variant of iLQR can be applied, making iLQR a natural inner solver for the real-time NMPC iteration.
 
-Substituting the expressions for $T$ and $V$:
-\begin{align}
-\mathcal{L}
-&=
-\frac12 I_d\dot\phi^2
-+
-\frac12 m_b
-\left(R_d + L\cos\theta\right)^2\dot\phi^2
-\\
-&\quad
-+
-\frac12 m_bL^2\dot\theta^2
--
-m_bgL\sin\theta
-\end{align}
+\subsection{}
+\textbf{Soft constraint formulation.} Replace each hard track constraint $|[1\;0\;0\;0]\mathbf{x}_i| \leq x_{\max}$ with a slack variable $\sigma_i \geq 0$ and add an $\ell_1$-exact penalty to the cost. The modified QP is:
+\begin{equation}
+\begin{aligned}
+    \min_{\{\mathbf{x}_i, u_i, \sigma_i\}} \quad & \mathbf{x}_N^\top\mathbf{P}\mathbf{x}_N + \sum_{i=0}^{N-1}\bigl(\mathbf{x}_i^\top\mathbf{Q}\mathbf{x}_i + ru_i^2 + \rho\,\sigma_i\bigr) \\
+    \text{s.t.} \quad & \mathbf{x}_0 = \hat{\mathbf{x}}_k,\quad \mathbf{x}_{i+1} = A\mathbf{x}_i + Bu_i, \\
+    & |u_i| \leq u_{\max}, \\
+    & [1\;0\;0\;0]\mathbf{x}_i \leq x_{\max} + \sigma_i, \\
+    & -[1\;0\;0\;0]\mathbf{x}_i \leq x_{\max} + \sigma_i, \\
+    & \sigma_i \geq 0, \quad i = 0,\ldots,N-1.
+\end{aligned}
+\end{equation}
+The problem remains a QP (cost is linear in $\sigma_i$). When $\rho$ exceeds the optimal dual variable (Lagrange multiplier) of the original hard constraint, the $\ell_1$ penalty is exact: the solution coincides with the hard-constrained solution whenever feasible, while permitting violation at a proportional cost when the hard constraint would render the problem infeasible.
 
-\subsubsection*{Equation for $\phi$}
+\textbf{Tube MPC.} For systems subject to bounded additive disturbances $\mathbf{w}_k$ with $\|\mathbf{w}_k\| \leq \bar{w}$, tube MPC separates the problem into a nominal trajectory (optimized by MPC) and a local feedback controller $u = \kappa(\mathbf{x}) - K(\mathbf{x} - \mathbf{x}^{nom})$ that keeps the actual state within a precomputed invariant tube around the nominal. The nominal MPC is solved with tightened constraints (reduced by the tube cross-section), guaranteeing that the actual state satisfies the original constraints for all realizations of the disturbance, thereby providing robust recursive feasibility and stability.
 
-Compute:
-\[
-\frac{\partial \mathcal{L}}{\partial \dot\phi}
-=
-\left[
-I_d + m_b\left(R_d+L\cos\theta\right)^2
-\right]\dot\phi
-\]
+\subsection{}
+\textbf{QP size.} For the condensed form with horizon $N$, $n = 4$ states, and $m = 1$ input:
+\begin{itemize}
+    \item Decision variables: $N$ (inputs $\mathbf{U}$) $+ N$ (slacks $\boldsymbol{\sigma}$, if soft) $= N$ to $2N$.
+    \item Inequality constraints: $2N$ (input bounds) $+ 2N$ (position bounds) $= 4N$.
+    \item Hessian: $N \times N$ dense, requiring $O(N^3)$ to factor (or $O(N^2)$ per active-set pivot).
+\end{itemize}
+For the sparse form, the QP has $5N + 4$ variables, $4N + 4$ equality constraints, and $4N$ inequalities, but the KKT matrix is block-banded with $O(N)$ nonzeros, allowing $O(N)$ factorization.
 
-Taking the time derivative:
-\begin{align}
-\frac{d}{dt}
-\left(
-\frac{\partial \mathcal{L}}{\partial \dot\phi}
-\right)
-&=
-\left[
-I_d + m_b(R_d+L\cos\theta)^2
-\right]\ddot\phi
-\\
-&\quad
--2m_bL(R_d+L\cos\theta)\sin\theta\dot\theta\dot\phi
-\end{align}
+\textbf{Solve-time vs.\ $T_s$ requirement.} The QP solution must be available within the sample interval $T_s$, so the solver wall-clock time must satisfy $t_{\mathrm{solve}} < T_s$. For $N = 20$--$50$ and $n = 4$ the condensed QP involves a $20$--$50$ variable dense QP solvable in microseconds to milliseconds with modern solvers (OSQP, quadprog), well within typical $T_s \approx 10$--$50$ ms for robotic systems. For NMPC with nonlinear dynamics, each Newton step additionally requires $O(N)$ sensitivity propagations.
 
-Since:
-\[
-\frac{\partial \mathcal{L}}{\partial \phi} = 0
-\]
-
-The equation of motion for $\phi$ is:
-\begin{align}
-&\left[
-I_d + m_b(R_d+L\cos\theta)^2
-\right]\ddot\phi
-\\
-&\quad
--2m_bL(R_d+L\cos\theta)\sin\theta\dot\theta\dot\phi
-=0
-\end{align}
-
-\subsubsection*{Equation for $\theta$}
-
-Compute:
-\[
-\frac{\partial \mathcal{L}}{\partial \dot\theta}
-= m_bL^2\dot\theta
-\]
-
-Thus:
-\[
-\frac{d}{dt}
-\left(
-\frac{\partial \mathcal{L}}{\partial \dot\theta}
-\right)
-= m_bL^2\ddot\theta
-\]
-
-Now compute:
-\begin{align}
-\frac{\partial \mathcal{L}}{\partial \theta}
-&=
--m_bL(R_d+L\cos\theta)\sin\theta\dot\phi^2
-\\
-&\quad
--m_bgL\cos\theta
-\end{align}
-
-Hence the equation of motion for $\theta$ is:
-\[
-m_bL^2\ddot\theta
-+
-m_bL(R_d+L\cos\theta)\sin\theta\dot\phi^2
--
-m_bgL\cos\theta
-=0
-\]
-
-\subsection*{(d) Matrix Form}
-
-Define:
-\[
-\mathbf{q}
-=
-\begin{bmatrix}
-\phi \\
-\theta
-\end{bmatrix}
-\]
-
-The equations of motion can be written as:
-\[
-\mathbf{M}(q)\ddot q
-+
-\mathbf{h}(q,\dot q)
-+
-\mathbf{g}(q)
-=0
-\]
-
-The mass matrix is:
-\[
-\mathbf{M}(q)
-=
-\begin{bmatrix}
-I_d + m_b(R_d+L\cos\theta)^2 & 0 \\
-0 & m_bL^2
-\end{bmatrix}
-\]
-
-The velocity-coupling vector is:
-\[
-\mathbf{h}(q,\dot q)
-=
-\begin{bmatrix}
--2m_bL(R_d+L\cos\theta)\sin\theta\dot\theta\dot\phi \\
-m_bL(R_d+L\cos\theta)\sin\theta\dot\phi^2
-\end{bmatrix}
-\]
-
-The gravity vector is:
-\[
-\mathbf{g}(q)
-=
-\begin{bmatrix}
-0 \\
--m_bgL\cos\theta
-\end{bmatrix}
-\]
-
-\subsection*{(e) Cyclic Coordinate}
-
-Since the Lagrangian does not explicitly depend on $\phi$:
-\[
-\frac{\partial \mathcal{L}}{\partial \phi}=0
-\]
-
-Therefore $\phi$ is a cyclic (ignorable) coordinate.
-
-The conserved generalized momentum is:
-\begin{align}
-p_\phi
-&=
-\frac{\partial \mathcal{L}}{\partial \dot\phi}
-\\
-&=
-\left[
-I_d + m_b(R_d+L\cos\theta)^2
-\right]\dot\phi
-\end{align}
-
-This quantity represents the total angular momentum about the vertical shaft axis.
-
-\subsection*{(f) Virtual Work}
-
-Suppose an external horizontal force $\mathbf{F}$ acts at the point mass $m_b$.
-
-The position vector of the point mass is:
-\[
-\mathbf{r}_{m_b}
-=
-R_d\mathbf{a}_1 + L\mathbf{b}_1
-\]
-
-The virtual displacement is:
-\[
-\delta \mathbf{r}_{m_b}
-=
-\frac{\partial \mathbf{r}_{m_b}}{\partial \phi}\delta\phi
-+
-\frac{\partial \mathbf{r}_{m_b}}{\partial \theta}\delta\theta
-\]
-
-The virtual work is:
-\[
-\delta W
-=
-\mathbf{F}\cdot \delta\mathbf{r}_{m_b}
-\]
-
-Comparing with:
-\[
-\delta W = Q_\phi\delta\phi + Q_\theta\delta\theta
-\]
-
-The generalized forces are:
-\begin{align}
-Q_\phi
-&=
-\mathbf{F}\cdot
-\frac{\partial \mathbf{r}_{m_b}}{\partial \phi}
-\\
-Q_\theta
-&=
-\mathbf{F}\cdot
-\frac{\partial \mathbf{r}_{m_b}}{\partial \theta}
-\end{align}
-
-\subsection*{(g) Conservation of Mechanical Energy}
-
-For the unforced and frictionless system:
-\[
-E = T + V
-\]
-
-Substituting the expressions:
-\begin{align}
-E
-&=
-\frac12 I_d\dot\phi^2
-+
-\frac12 m_b(R_d+L\cos\theta)^2\dot\phi^2
-\\
-&\quad
-+
-\frac12 m_bL^2\dot\theta^2
--
-m_bgL\cos\theta
-\end{align}
-
-Since there are no non-conservative forces acting on the system:
-\[
-\frac{dE}{dt}=0
-\]
-
-Therefore the total mechanical energy is conserved.
-
-\subsection*{(h) Bonus: Linearization About Steady Spin}
-
-Consider small oscillations about:
-\[
-\theta = 0,
-\qquad
-\dot\phi = \Omega_0
-\]
-
-Using the approximations:
-\[
-\sin\theta \approx \theta,
-\qquad
-\cos\theta \approx 1
-\]
-
-The $\theta$ equation becomes:
-\begin{align}
-m_bL^2\ddot\theta
-&+
-m_bL(R_d+L)\Omega_0^2\theta
-\\
-&+
-m_bgL\theta = 0
-\end{align}
-
-Dividing by $m_bL^2$:
-\[
-\ddot\theta
-+
-\left(
-\frac{(R_d+L)\Omega_0^2}{L}
-+
-\frac{g}{L}
-\right)\theta
-=0
-\]
-
-Hence the linearized small-angle equation is:
-\[
-\boxed{
-\ddot\theta
-+
-\omega_n^2\theta = 0
-}
-\]
-with:
-\[
-\omega_n^2
-=
-\frac{(R_d+L)\Omega_0^2}{L}
-+
-\frac{g}{L}
-\]
+\textbf{Warm starting.} Initializing the QP/NLP solver from the previous shifted solution means the active set rarely changes between steps. Active-set solvers then need only a few additional pivot operations (vs.\ many from cold-start), and interior-point methods converge in fewer iterations. Warm starting can reduce solve time by $5$--$10\times$, making real-time operation feasible at shorter $T_s$ or longer horizons $N$.
